@@ -63,7 +63,7 @@ export default function AdminPage(): JSX.Element {
   useEffect(() => { if (auth) loadProducts() }, [auth])
 
   async function uploadImage(file: File): Promise<string | null> {
-    const ext = file.name.split('.').pop()
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
     const path = `${editing!.id}.${ext}`
     setUploading(true)
     setSaveMsg('Subiendo imagen...')
@@ -80,7 +80,7 @@ export default function AdminPage(): JSX.Element {
 
     const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
     setUploading(false)
-    setSaveMsg('✅ Imagen subida')
+    setSaveMsg('✅ Imagen subida — guardá los cambios')
     return data.publicUrl
   }
 
@@ -260,9 +260,13 @@ export default function AdminPage(): JSX.Element {
                     <img src={previewUrl} alt="preview"
                       style={{ width: 80, height: 80, objectFit: 'contain', border: '1px solid #e4e4e2', borderRadius: 8, background: '#f5f5f3' }}
                       onError={e => { e.currentTarget.style.opacity = '0.1' }} />
-                    <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4 }}>
+                    <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6 }}>
                       {editing.imagen_url ? 'Imagen guardada en tabla' : 'Imagen desde Storage (por ID)'}<br/>
-                      <span style={{ fontSize: 11, color: '#bbb' }}>{previewUrl.split('/').pop()}</span>
+                      <span style={{ fontSize: 11, color: '#bbb' }}>{previewUrl.split('/').pop()}</span><br/>
+                      <span style={{ fontSize: 11, color: '#f15922', cursor: 'pointer', textDecoration: 'underline' }}
+                        onClick={() => fileRef.current?.click()}>
+                        Reemplazar imagen
+                      </span>
                     </div>
                   </div>
                 )
