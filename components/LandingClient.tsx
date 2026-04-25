@@ -176,45 +176,50 @@ export default function LandingClient({productos}:{productos:Producto[]}) {
     <style>{`@keyframes pop{from{opacity:0;transform:scale(.93)}to{opacity:1;transform:scale(1)}}*{box-sizing:border-box}body{margin:0;font-family:'Barlow',sans-serif;background:#f0f0ee}input,button,select{font-family:inherit}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#ddd;border-radius:3px}`}</style>
 
     {/* HEADER */}
-    <header style={{background:'#fff',borderBottom:'3px solid #f15922',padding:'14px 20px',display:'flex',flexDirection:'column',alignItems:'center',gap:10,position:'sticky',top:0,zIndex:100,boxShadow:'0 2px 20px rgba(0,0,0,0.07)'}}>
-      <img src={LOGO_B64} alt="Dental Medrano" style={{height:40,width:'auto'}}/>
+    <header style={{background:'#fff',borderBottom:'3px solid #f15922',padding:'14px 32px',display:'flex',alignItems:'center',justifyContent:'space-between',boxShadow:'0 2px 20px rgba(0,0,0,0.07)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:20}}>
+        <img src={LOGO_B64} alt="Dental Medrano" style={{height:46,width:'auto'}}/>
+        <div style={{width:1,height:40,background:'#e4e4e2'}}/>
+      </div>
       <div style={{textAlign:'center'}}>
-        <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:'clamp(24px,5vw,36px)',fontWeight:900,color:'#f15922',letterSpacing:3,textTransform:'uppercase',lineHeight:1}}>Oportunidades 2026</div>
+        <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:'clamp(22px,4vw,34px)',fontWeight:900,color:'#f15922',letterSpacing:3,textTransform:'uppercase',lineHeight:1}}>Oportunidades 2026</div>
         <div style={{fontSize:11,color:'#aaa',letterSpacing:.5,fontWeight:500,textTransform:'uppercase',marginTop:4}}>Precios especiales · Stock limitado · Consultar mínimos</div>
       </div>
-      <div style={{background:'#fff5f5',border:'1.5px solid #ffd0ce',borderRadius:10,padding:'6px 18px',textAlign:'center'}}>
-        <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:26,fontWeight:900,color:'#e53935',lineHeight:1}}>{urgCount} productos con vencimiento urgente</div>
+      <div style={{background:'#fff5f5',border:'1.5px solid #ffd0ce',borderRadius:10,padding:'8px 18px',textAlign:'center'}}>
+        <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:30,fontWeight:900,color:'#e53935',lineHeight:1}}>{urgCount}</div>
+        <div style={{fontSize:10,fontWeight:700,color:'#e53935',textTransform:'uppercase',letterSpacing:.5}}>Venc. urgente</div>
       </div>
     </header>
 
     {/* CONTROLS */}
-    <div style={{background:'#fff',borderBottom:'1px solid #e4e4e2',padding:'10px 16px',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',position:'sticky',top:119,zIndex:99}}>
-      <input type="search" placeholder="🔍  Buscar…" value={search} onChange={e=>setSearch(e.target.value)}
-        style={{padding:'8px 14px',border:'1.5px solid #e4e4e2',borderRadius:8,fontSize:14,flex:1,minWidth:140,background:'#f7f7f5',color:'#1a1a1a',outline:'none'}}/>
+    <div style={{background:'#fff',borderBottom:'1px solid #e4e4e2',padding:'10px 32px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+      <input type="search" placeholder="🔍  Buscar por nombre o código…" value={search} onChange={e=>setSearch(e.target.value)}
+        style={{padding:'7px 13px',border:'1.5px solid #e4e4e2',borderRadius:8,fontSize:13,width:240,background:'#f7f7f5',color:'#1a1a1a',outline:'none'}}/>
       <button onClick={()=>setFilterUrg(v=>!v)}
-        style={{padding:'8px 14px',borderRadius:8,border:'1.5px solid',fontSize:13,fontWeight:700,cursor:'pointer',transition:'all .15s',background:filterUrg?'#e53935':'#fff5f5',borderColor:filterUrg?'#e53935':'#ffd0ce',color:filterUrg?'#fff':'#e53935',whiteSpace:'nowrap'}}>
+        style={{padding:'7px 14px',borderRadius:8,border:'1.5px solid',fontSize:13,fontWeight:700,cursor:'pointer',transition:'all .15s',background:filterUrg?'#e53935':'#fff5f5',borderColor:filterUrg?'#e53935':'#ffd0ce',color:filterUrg?'#fff':'#e53935',whiteSpace:'nowrap'}}>
         ⚡ Urgentes
       </button>
+      <div style={{width:1,height:28,background:'#e4e4e2'}}/>
       <select value={sortIdx} onChange={e=>setSortIdx(Number(e.target.value))}
-        style={{padding:'8px 10px',border:'1.5px solid #e4e4e2',borderRadius:8,fontSize:13,background:'#f7f7f5',color:'#555',cursor:'pointer',outline:'none'}}>
+        style={{padding:'7px 12px',border:'1.5px solid #e4e4e2',borderRadius:8,fontSize:13,background:'#f7f7f5',color:'#555',cursor:'pointer',outline:'none'}}>
         {SORTS.map((s,i)=><option key={i} value={i}>{s.label}</option>)}
       </select>
-      <div style={{display:'flex',gap:4}}>
-        {(['grid','list'] as const).map(v=>(
-          <button key={v} onClick={()=>setView(v)} title={v==='grid'?'Cuadrícula':'Lista'}
-            style={{width:34,height:34,borderRadius:7,border:'1.5px solid',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:17,transition:'all .15s',background:view===v?'#f15922':'#f7f7f5',borderColor:view===v?'#f15922':'#e4e4e2',color:view===v?'#fff':'#888'}}>
-            {v==='grid'?'⊞':'☰'}
-          </button>
-        ))}
-      </div>
-      <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:13,color:'#aaa',fontWeight:600,whiteSpace:'nowrap'}}>{filtered.length} productos</div>
+      <div style={{flex:1}}/>
+      <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:14,color:'#aaa',fontWeight:600}}>{filtered.length} productos</div>
+      <div style={{width:1,height:28,background:'#e4e4e2'}}/>
+      {(['grid','list'] as const).map(v=>(
+        <button key={v} onClick={()=>setView(v)} title={v==='grid'?'Cuadrícula':'Lista'}
+          style={{width:34,height:34,borderRadius:7,border:'1.5px solid',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:17,transition:'all .15s',background:view===v?'#f15922':'#f7f7f5',borderColor:view===v?'#f15922':'#e4e4e2',color:view===v?'#fff':'#888'}}>
+          {v==='grid'?'⊞':'☰'}
+        </button>
+      ))}
     </div>
 
     {/* CATEGORY TABS */}
-    <div style={{background:'#fff',borderBottom:'1px solid #e4e4e2',padding:'0 8px',display:'flex',gap:0,overflowX:'auto',position:'sticky',top:173,zIndex:98,WebkitOverflowScrolling:'touch'} as React.CSSProperties}>
+    <div style={{background:'#fff',borderBottom:'1px solid #e4e4e2',padding:'0 32px',display:'flex',gap:0,overflowX:'auto'}}>
       {CATS.map(c=>(
         <button key={c} onClick={()=>setCat(c)}
-          style={{padding:'10px 14px',border:'none',borderBottom:`3px solid ${cat===c?'#f15922':'transparent'}`,background:'transparent',fontSize:13,fontWeight:cat===c?700:500,color:cat===c?'#f15922':'#888',cursor:'pointer',whiteSpace:'nowrap',transition:'all .15s'}}>
+          style={{padding:'10px 16px',border:'none',borderBottom:`3px solid ${cat===c?'#f15922':'transparent'}`,background:'transparent',fontSize:13,fontWeight:cat===c?700:500,color:cat===c?'#f15922':'#888',cursor:'pointer',whiteSpace:'nowrap',transition:'all .15s'}}>
           {c}
         </button>
       ))}
