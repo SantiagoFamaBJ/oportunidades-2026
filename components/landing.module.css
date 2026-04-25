@@ -1,21 +1,4 @@
-/* ── RESET & ROOT ── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-:root {
-  --orange: #f15922;
-  --orange-glow: rgba(241,89,34,0.20);
-  --orange-pale: #fff4f0;
-  --red: #e53935;
-  --red-glow: rgba(229,57,53,0.20);
-  --red-bg: #fff5f5;
-  --red-border: #ffd0ce;
-  --bg: #f0f0ee;
-  --surface: #ffffff;
-  --border: #e4e4e2;
-  --text: #1a1a1a;
-  --muted: #888;
-  --subtle: #bbb;
-}
 
 /* ── HEADER ── */
 .header {
