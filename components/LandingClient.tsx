@@ -94,7 +94,6 @@ function CardGrid({p,onClick}:{p:Producto;onClick:()=>void}) {
     <div onClick={onClick} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
       style={{background:'#fff',borderRadius:12,border:p.es_urgente?'2px solid #ffd0ce':'1.5px solid #e4e4e2',display:'flex',flexDirection:'column',cursor:'pointer',position:'relative',overflow:'hidden',transition:'transform .18s,box-shadow .18s',transform:hov?'translateY(-4px)':'none',boxShadow:shadow}}>
       {p.es_urgente&&<div style={{position:'absolute',top:8,left:8,zIndex:2,background:'#e53935',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontSize:9,fontWeight:800,padding:'2px 8px',borderRadius:4,letterSpacing:1,textTransform:'uppercase'}}>⚡ Urgente</div>}
-      <div style={{position:'absolute',top:8,right:8,zIndex:2,background:d>=60?'#e53935':d>=40?'#f15922':'#555',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontSize:16,fontWeight:900,padding:'4px 10px',borderRadius:6,letterSpacing:.5,lineHeight:1}}>−{d}%</div>
       <div style={{height:120,background:p.es_urgente?'#fff8f7':'#f7f7f5',borderBottom:'1px solid #e4e4e2',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,overflow:'hidden'}}>
         <Img p={p} h={120}/>
       </div>
@@ -103,7 +102,10 @@ function CardGrid({p,onClick}:{p:Producto;onClick:()=>void}) {
         <div style={{fontSize:12,fontWeight:600,lineHeight:1.4,color:'#1a1a1a',display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',overflow:'hidden',minHeight:50}}>{p.nombre}</div>
         <div style={{marginTop:'auto',paddingTop:8,borderTop:'1px solid #f0f0ee'}}>
           <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'#f15922',marginBottom:2}}>Precio Outlet</div>
-          <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:26,fontWeight:900,color:'#f15922',lineHeight:1,letterSpacing:-0.5}}>{fmt(p.precio_outlet)}</div>
+          <div style={{display:'flex',alignItems:'baseline',gap:8}}>
+            <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:26,fontWeight:900,color:'#f15922',lineHeight:1,letterSpacing:-0.5}}>{fmt(p.precio_outlet)}</div>
+            <div style={{background:d>=60?'#e53935':d>=40?'#f15922':'#555',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontSize:16,fontWeight:900,padding:'2px 7px',borderRadius:5,lineHeight:1}}>−{d}%</div>
+          </div>
           <div style={{fontSize:11,color:'#ccc',textDecoration:'line-through',marginTop:2}}>{fmt(p.precio_publico)}</div>
         </div>
         <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
