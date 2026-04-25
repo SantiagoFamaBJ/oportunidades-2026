@@ -1,15 +1,33 @@
+'use client'
+import { useEffect, useState } from 'react'
 import { supabase, Producto } from '@/lib/supabase'
 import LandingClient from '@/components/LandingClient'
 
-export const revalidate = 300
+export default function Home() {
+  const [productos, setProductos] = useState<Producto[]>([])
+  const [loading, setLoading] = useState(true)
 
-export default async function Home() {
-  const { data } = await supabase
-    .from('productos_oportunidades')
-    .select('*')
-    .eq('activo', true)
-    .order('es_urgente', { ascending: false })
-    .order('fecha_venc', { ascending: true })
+  useEffect(() => {
+    supabase
+      .from('productos_oportunidades')
+      .select('*')
+      .eq('activo', true)
+      .order('fecha_venc', { ascending: true })
+      .then(({ data }) => {
+        setProductos((data || []) as Producto[])
+        setLoading(false)
+      })
+  }, [])
 
-  return <LandingClient productos={(data || []) as Producto[]} />
+  if (loading) return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center',
+      justifyContent: 'center', background: '#f0f0ee',
+      fontFamily: 'Barlow, sans-serif', fontSize: 16, color: '#aaa'
+    }}>
+      Cargando productos...
+    </div>
+  )
+
+  return <LandingClient productos={productos} />
 }
