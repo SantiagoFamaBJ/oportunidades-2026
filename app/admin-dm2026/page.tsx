@@ -6,8 +6,9 @@ const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'dm2026admin'
 const BUCKET = 'product-images'
 const STORAGE_BASE = 'https://larqxmgyutqiktsforgz.supabase.co/storage/v1/object/public/product-images'
 
-function getStorageUrl(id: string): string {
-  return `${STORAGE_BASE}/${id}.jpg`
+function getStorageUrl(id: string, bust = false): string {
+  const base = `${STORAGE_BASE}/${id}.jpg`
+  return bust ? `${base}?t=${Date.now()}` : base
 }
 
 function fmt(n: number) {
@@ -81,7 +82,8 @@ export default function AdminPage(): JSX.Element {
     const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
     setUploading(false)
     setSaveMsg('✅ Imagen subida — guardá los cambios')
-    return data.publicUrl
+    // Return URL with cache-buster so preview refreshes immediately
+    return data.publicUrl + '?t=' + Date.now()
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {

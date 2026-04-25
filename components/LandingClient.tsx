@@ -8,18 +8,18 @@ const fmtDate = (iso: string) => { const [y,m,d] = iso.split('-'); return `${d}/
 const pct = (pub: number, out: number) => Math.round((1 - out / pub) * 100)
 
 const STORAGE_BASE = 'https://larqxmgyutqiktsforgz.supabase.co/storage/v1/object/public/product-images'
+const BUST = new Date().toISOString().slice(0, 10)
 
 function getUrls(p: Producto): string[] {
-  // Intentar con el ID exacto del producto (con y sin sufijo de lote)
   const id = p.id
-  const baseId = p.codigo // ej: 006039-00000
+  const baseId = p.codigo
   return [
-    `${STORAGE_BASE}/${id}.jpg`,
-    `${STORAGE_BASE}/${id}.png`,
-    `${STORAGE_BASE}/${id}.webp`,
-    `${STORAGE_BASE}/${baseId}.jpg`,
-    `${STORAGE_BASE}/${baseId}.png`,
-    `${STORAGE_BASE}/${baseId}.webp`,
+    `${STORAGE_BASE}/${id}.jpg?v=${BUST}`,
+    `${STORAGE_BASE}/${id}.png?v=${BUST}`,
+    `${STORAGE_BASE}/${id}.webp?v=${BUST}`,
+    `${STORAGE_BASE}/${baseId}.jpg?v=${BUST}`,
+    `${STORAGE_BASE}/${baseId}.png?v=${BUST}`,
+    `${STORAGE_BASE}/${baseId}.webp?v=${BUST}`,
   ]
 }
 
