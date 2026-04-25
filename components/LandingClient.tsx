@@ -94,7 +94,7 @@ function CardGrid({p,onClick}:{p:Producto;onClick:()=>void}) {
     <div onClick={onClick} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
       style={{background:'#fff',borderRadius:12,border:p.es_urgente?'2px solid #ffd0ce':'1.5px solid #e4e4e2',display:'flex',flexDirection:'column',cursor:'pointer',position:'relative',overflow:'hidden',transition:'transform .18s,box-shadow .18s',transform:hov?'translateY(-4px)':'none',boxShadow:shadow}}>
       {p.es_urgente&&<div style={{position:'absolute',top:8,left:8,zIndex:2,background:'#e53935',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontSize:9,fontWeight:800,padding:'2px 8px',borderRadius:4,letterSpacing:1,textTransform:'uppercase'}}>⚡ Urgente</div>}
-      <div style={{position:'absolute',top:8,right:8,zIndex:2,background:d>=60?'#e53935':d>=40?'#f15922':'#555',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontSize:11,fontWeight:900,padding:'2px 7px',borderRadius:4}}>−{d}%</div>
+      <div style={{position:'absolute',top:8,right:8,zIndex:2,background:d>=60?'#e53935':d>=40?'#f15922':'#555',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontSize:16,fontWeight:900,padding:'4px 10px',borderRadius:6,letterSpacing:.5,lineHeight:1}}>−{d}%</div>
       <div style={{height:120,background:p.es_urgente?'#fff8f7':'#f7f7f5',borderBottom:'1px solid #e4e4e2',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,overflow:'hidden'}}>
         <Img p={p} h={120}/>
       </div>
@@ -154,7 +154,7 @@ function CardList({p,onClick}:{p:Producto;onClick:()=>void}) {
 export default function LandingClient({productos}:{productos:Producto[]}) {
   const [filterUrg,setFilterUrg] = useState(false)
   const [cat,setCat] = useState('Todas')
-  const [sortIdx,setSortIdx] = useState(0)
+  const [sortIdx,setSortIdx] = useState(1)
   const [search,setSearch] = useState('')
   const [view,setView] = useState<'grid'|'list'>('grid')
   const [selected,setSelected] = useState<Producto|null>(null)
@@ -176,57 +176,52 @@ export default function LandingClient({productos}:{productos:Producto[]}) {
     <style>{`@keyframes pop{from{opacity:0;transform:scale(.93)}to{opacity:1;transform:scale(1)}}*{box-sizing:border-box}body{margin:0;font-family:'Barlow',sans-serif;background:#f0f0ee}input,button,select{font-family:inherit}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#ddd;border-radius:3px}`}</style>
 
     {/* HEADER */}
-    <header style={{background:'#fff',borderBottom:'3px solid #f15922',padding:'14px 32px',display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,zIndex:100,boxShadow:'0 2px 20px rgba(0,0,0,0.07)'}}>
-      <div style={{display:'flex',alignItems:'center',gap:20}}>
-        <img src={LOGO_B64} alt="Dental Medrano" style={{height:46,width:'auto'}}/>
-        <div style={{width:1,height:40,background:'#e4e4e2'}}/>
-        <div>
-          <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:32,fontWeight:900,color:'#f15922',letterSpacing:3,textTransform:'uppercase',lineHeight:1}}>Oportunidades 2026</div>
-          <div style={{fontSize:11,color:'#aaa',letterSpacing:.5,fontWeight:500,textTransform:'uppercase',marginTop:3}}>Precios especiales · Stock limitado · Consultar mínimos</div>
-        </div>
+    <header style={{background:'#fff',borderBottom:'3px solid #f15922',padding:'14px 20px',display:'flex',flexDirection:'column',alignItems:'center',gap:10,position:'sticky',top:0,zIndex:100,boxShadow:'0 2px 20px rgba(0,0,0,0.07)'}}>
+      <img src={LOGO_B64} alt="Dental Medrano" style={{height:40,width:'auto'}}/>
+      <div style={{textAlign:'center'}}>
+        <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:'clamp(24px,5vw,36px)',fontWeight:900,color:'#f15922',letterSpacing:3,textTransform:'uppercase',lineHeight:1}}>Oportunidades 2026</div>
+        <div style={{fontSize:11,color:'#aaa',letterSpacing:.5,fontWeight:500,textTransform:'uppercase',marginTop:4}}>Precios especiales · Stock limitado · Consultar mínimos</div>
       </div>
-      <div style={{background:'#fff5f5',border:'1.5px solid #ffd0ce',borderRadius:10,padding:'8px 18px',textAlign:'center'}}>
-        <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:30,fontWeight:900,color:'#e53935',lineHeight:1}}>{urgCount}</div>
-        <div style={{fontSize:10,fontWeight:700,color:'#e53935',textTransform:'uppercase',letterSpacing:.5}}>Venc. urgente</div>
+      <div style={{background:'#fff5f5',border:'1.5px solid #ffd0ce',borderRadius:10,padding:'6px 18px',textAlign:'center'}}>
+        <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:26,fontWeight:900,color:'#e53935',lineHeight:1}}>{urgCount} productos con vencimiento urgente</div>
       </div>
     </header>
 
     {/* CONTROLS */}
-    <div style={{background:'#fff',borderBottom:'1px solid #e4e4e2',padding:'10px 32px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',position:'sticky',top:79,zIndex:99}}>
-      <input type="search" placeholder="🔍  Buscar por nombre o código…" value={search} onChange={e=>setSearch(e.target.value)}
-        style={{padding:'8px 14px',border:'1.5px solid #e4e4e2',borderRadius:8,fontSize:14,width:270,background:'#f7f7f5',color:'#1a1a1a',outline:'none'}}/>
+    <div style={{background:'#fff',borderBottom:'1px solid #e4e4e2',padding:'10px 16px',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',position:'sticky',top:119,zIndex:99}}>
+      <input type="search" placeholder="🔍  Buscar…" value={search} onChange={e=>setSearch(e.target.value)}
+        style={{padding:'8px 14px',border:'1.5px solid #e4e4e2',borderRadius:8,fontSize:14,flex:1,minWidth:140,background:'#f7f7f5',color:'#1a1a1a',outline:'none'}}/>
       <button onClick={()=>setFilterUrg(v=>!v)}
-        style={{padding:'8px 16px',borderRadius:8,border:'1.5px solid',fontSize:13,fontWeight:700,cursor:'pointer',transition:'all .15s',background:filterUrg?'#e53935':'#fff5f5',borderColor:filterUrg?'#e53935':'#ffd0ce',color:filterUrg?'#fff':'#e53935'}}>
+        style={{padding:'8px 14px',borderRadius:8,border:'1.5px solid',fontSize:13,fontWeight:700,cursor:'pointer',transition:'all .15s',background:filterUrg?'#e53935':'#fff5f5',borderColor:filterUrg?'#e53935':'#ffd0ce',color:filterUrg?'#fff':'#e53935',whiteSpace:'nowrap'}}>
         ⚡ Urgentes
       </button>
-      <div style={{width:1,height:28,background:'#e4e4e2'}}/>
       <select value={sortIdx} onChange={e=>setSortIdx(Number(e.target.value))}
-        style={{padding:'7px 12px',border:'1.5px solid #e4e4e2',borderRadius:8,fontSize:13,background:'#f7f7f5',color:'#555',cursor:'pointer',outline:'none'}}>
-        {SORTS.map((s,i)=><option key={i} value={i}>📊 {s.label}</option>)}
+        style={{padding:'8px 10px',border:'1.5px solid #e4e4e2',borderRadius:8,fontSize:13,background:'#f7f7f5',color:'#555',cursor:'pointer',outline:'none'}}>
+        {SORTS.map((s,i)=><option key={i} value={i}>{s.label}</option>)}
       </select>
-      <div style={{flex:1}}/>
-      <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:14,color:'#aaa',fontWeight:600}}>{filtered.length} productos</div>
-      <div style={{width:1,height:28,background:'#e4e4e2'}}/>
-      {(['grid','list'] as const).map(v=>(
-        <button key={v} onClick={()=>setView(v)} title={v==='grid'?'Cuadrícula':'Lista'}
-          style={{width:34,height:34,borderRadius:7,border:'1.5px solid',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:17,transition:'all .15s',background:view===v?'#f15922':'#f7f7f5',borderColor:view===v?'#f15922':'#e4e4e2',color:view===v?'#fff':'#888'}}>
-          {v==='grid'?'⊞':'☰'}
-        </button>
-      ))}
+      <div style={{display:'flex',gap:4}}>
+        {(['grid','list'] as const).map(v=>(
+          <button key={v} onClick={()=>setView(v)} title={v==='grid'?'Cuadrícula':'Lista'}
+            style={{width:34,height:34,borderRadius:7,border:'1.5px solid',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:17,transition:'all .15s',background:view===v?'#f15922':'#f7f7f5',borderColor:view===v?'#f15922':'#e4e4e2',color:view===v?'#fff':'#888'}}>
+            {v==='grid'?'⊞':'☰'}
+          </button>
+        ))}
+      </div>
+      <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:13,color:'#aaa',fontWeight:600,whiteSpace:'nowrap'}}>{filtered.length} productos</div>
     </div>
 
     {/* CATEGORY TABS */}
-    <div style={{background:'#fff',borderBottom:'1px solid #e4e4e2',padding:'0 32px',display:'flex',gap:0,overflowX:'auto',position:'sticky',top:133,zIndex:98}}>
+    <div style={{background:'#fff',borderBottom:'1px solid #e4e4e2',padding:'0 8px',display:'flex',gap:0,overflowX:'auto',position:'sticky',top:173,zIndex:98,WebkitOverflowScrolling:'touch'} as React.CSSProperties}>
       {CATS.map(c=>(
         <button key={c} onClick={()=>setCat(c)}
-          style={{padding:'10px 16px',border:'none',borderBottom:`3px solid ${cat===c?'#f15922':'transparent'}`,background:'transparent',fontSize:13,fontWeight:cat===c?700:500,color:cat===c?'#f15922':'#888',cursor:'pointer',whiteSpace:'nowrap',transition:'all .15s'}}>
+          style={{padding:'10px 14px',border:'none',borderBottom:`3px solid ${cat===c?'#f15922':'transparent'}`,background:'transparent',fontSize:13,fontWeight:cat===c?700:500,color:cat===c?'#f15922':'#888',cursor:'pointer',whiteSpace:'nowrap',transition:'all .15s'}}>
           {c}
         </button>
       ))}
     </div>
 
     {/* PRODUCTS */}
-    <div style={{maxWidth:1700,margin:'20px auto 60px',padding:'0 28px',...(view==='grid'?{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:14}:{display:'flex',flexDirection:'column',gap:8})}}>
+    <div style={{maxWidth:1700,margin:'16px auto 60px',padding:'0 12px',...(view==='grid'?{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:12}:{display:'flex',flexDirection:'column',gap:8})}}>
       {filtered.length===0&&<div style={{gridColumn:'1/-1',textAlign:'center',padding:80,color:'#bbb',fontSize:16}}>No se encontraron productos</div>}
       {filtered.map(p=>
         view==='grid'
