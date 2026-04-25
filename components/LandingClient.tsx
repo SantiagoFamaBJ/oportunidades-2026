@@ -7,21 +7,20 @@ const fmt = (n: number) => '$\u00a0' + Math.round(n).toLocaleString('es-AR')
 const fmtDate = (iso: string) => { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
 const pct = (pub: number, out: number) => Math.round((1 - out / pub) * 100)
 
-const IMG_FNS = [
-  (k:string) => `https://dentalmedrano.com/wp-content/uploads/2025/12/${k}-500x500.jpg`,
-  (k:string) => `https://dentalmedrano.com/wp-content/uploads/2025/11/${k}-500x500.jpg`,
-  (k:string) => `https://dentalmedrano.com/wp-content/uploads/2025/10/${k}-500x500.jpg`,
-  (k:string) => `https://dentalmedrano.com/wp-content/uploads/2025/05/${k}-500x500.jpg`,
-  (k:string) => `https://dentalmedrano.com/wp-content/uploads/2024/04/${k}-500x500.jpg`,
-  (k:string) => `https://dentalmedrano.com/wp-content/uploads/2025/12/${k}-450x450.jpg`,
-]
+const STORAGE_BASE = 'https://larqxmgyutqiktsforgz.supabase.co/storage/v1/object/public/product-images'
 
 function getUrls(p: Producto): string[] {
-  // Si tiene imagen cargada manualmente, usar SOLO esa
-  if (p.imagen_url) return [p.imagen_url]
-  // Si no, intentar las URLs automáticas de la web
-  const key = p.codigo.split('-')[0].replace(/^0+/, '') || '0'
-  return IMG_FNS.map(fn => fn(key))
+  // Intentar con el ID exacto del producto (con y sin sufijo de lote)
+  const id = p.id
+  const baseId = p.codigo // ej: 006039-00000
+  return [
+    `${STORAGE_BASE}/${id}.jpg`,
+    `${STORAGE_BASE}/${id}.png`,
+    `${STORAGE_BASE}/${id}.webp`,
+    `${STORAGE_BASE}/${baseId}.jpg`,
+    `${STORAGE_BASE}/${baseId}.png`,
+    `${STORAGE_BASE}/${baseId}.webp`,
+  ]
 }
 
 function Img({ p, h }: { p: Producto; h: number }) {
