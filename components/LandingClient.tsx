@@ -16,11 +16,12 @@ const IMG_FNS = [
   (k:string) => `https://dentalmedrano.com/wp-content/uploads/2025/12/${k}-450x450.jpg`,
 ]
 
-function getUrls(p: Producto) {
-  const key = p.codigo.split('-')[0].replace(/^0+/,'') || '0'
-  const urls = IMG_FNS.map(fn => fn(key))
-  if (p.imagen_url) urls.unshift(p.imagen_url)
-  return urls
+function getUrls(p: Producto): string[] {
+  // Si tiene imagen cargada manualmente, usar SOLO esa
+  if (p.imagen_url) return [p.imagen_url]
+  // Si no, intentar las URLs automáticas de la web
+  const key = p.codigo.split('-')[0].replace(/^0+/, '') || '0'
+  return IMG_FNS.map(fn => fn(key))
 }
 
 function Img({ p, h }: { p: Producto; h: number }) {
