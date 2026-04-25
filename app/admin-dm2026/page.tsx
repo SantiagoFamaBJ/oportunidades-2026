@@ -1,353 +1,251 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import { supabase, Producto } from '@/lib/supabase'
+import { useState, useMemo } from 'react'
+import { Producto } from '@/lib/supabase'
+import { LOGO_B64 } from '@/lib/logo'
 
-const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'dm2026admin'
-const BUCKET = 'product-images'
+const fmt = (n: number) => '$\u00a0' + Math.round(n).toLocaleString('es-AR')
+const fmtDate = (iso: string) => { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
+const pct = (pub: number, out: number) => Math.round((1 - out / pub) * 100)
 
-function fmt(n: number) {
-  return '$ ' + Math.round(n).toLocaleString('es-AR')
+const STORAGE_BASE = 'https://larqxmgyutqiktsforgz.supabase.co/storage/v1/object/public/product-images'
+
+function getUrls(p: Producto): string[] {
+  // Intentar con el ID exacto del producto (con y sin sufijo de lote)
+  const id = p.id
+  const baseId = p.codigo // ej: 006039-00000
+  return [
+    `${STORAGE_BASE}/${id}.jpg`,
+    `${STORAGE_BASE}/${id}.png`,
+    `${STORAGE_BASE}/${id}.webp`,
+    `${STORAGE_BASE}/${baseId}.jpg`,
+    `${STORAGE_BASE}/${baseId}.png`,
+    `${STORAGE_BASE}/${baseId}.webp`,
+  ]
 }
-function fmtDate(iso: string) {
-  const [y, m, d] = iso.split('-')
-  return `${d}/${m}/${y}`
+
+function Img({ p, h }: { p: Producto; h: number }) {
+  const [i, setI] = useState(0)
+  const [fail, setFail] = useState(false)
+  const urls = useMemo(() => getUrls(p), [p.id, p.imagen_url])
+  if (fail) return (
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,opacity:.15}}>
+      <svg width={h*.36} height={h*.36} viewBox="0 0 40 40" fill="none" stroke="#999" strokeWidth="1.3">
+        <rect x="4" y="4" width="32" height="32" rx="4"/><circle cx="15" cy="15" r="4"/><path d="m4 26 9-9 7 7 5-5 11 11"/>
+      </svg>
+      <span style={{fontSize:9,fontFamily:'Barlow Condensed,sans-serif',letterSpacing:1}}>sin imagen</span>
+    </div>
+  )
+  return <img src={urls[i]} alt={p.nombre} style={{width:'100%',height:'100%',objectFit:'contain',padding:h>140?16:8}}
+    onError={()=>i+1<urls.length?setI(x=>x+1):setFail(true)}/>
 }
 
-export default function AdminPage() {
-  const [auth, setAuth] = useState(false)
-  const [pass, setPass] = useState('')
-  const [passErr, setPassErr] = useState(false)
-  const [productos, setProductos] = useState<Producto[]>([])
-  const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState('')
-  const [editing, setEditing] = useState<Producto | null>(null)
-  const [saveMsg, setSaveMsg] = useState('')
-  const [filter, setFilter] = useState<'all' | 'urgente' | 'ocultos' | 'sin_imagen'>('all')
-  const [uploading, setUploading] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
+const SORTS = [
+  {label:'Mayor descuento', fn:(a:Producto,b:Producto)=>pct(b.precio_publico,b.precio_outlet)-pct(a.precio_publico,a.precio_outlet)},
+  {label:'Vence primero',   fn:(a:Producto,b:Producto)=>a.fecha_venc.localeCompare(b.fecha_venc)},
+  {label:'Menor precio',    fn:(a:Producto,b:Producto)=>a.precio_outlet-b.precio_outlet},
+  {label:'Mayor precio',    fn:(a:Producto,b:Producto)=>b.precio_outlet-a.precio_outlet},
+]
+const CATS = ['Todas','Composites','Siliconas','Adhesivos','Blanqueamiento','Cementos y Restauradores','Descartables y Accesorios','Otros']
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const ok = sessionStorage.getItem('dm_admin_auth')
-      if (ok === '1') { setAuth(true) }
-    }
-  }, [])
-
-  async function login() {
-    if (pass === ADMIN_PASSWORD) {
-      sessionStorage.setItem('dm_admin_auth', '1')
-      setAuth(true)
-      loadProducts()
-    } else {
-      setPassErr(true)
-      setTimeout(() => setPassErr(false), 2000)
-    }
-  }
-
-  async function loadProducts() {
-    setLoading(true)
-    const { data } = await supabase
-      .from('productos_oportunidades')
-      .select('*')
-      .order('es_urgente', { ascending: false })
-      .order('fecha_venc', { ascending: true })
-    setProductos(data || [])
-    setLoading(false)
-  }
-
-  useEffect(() => { if (auth) loadProducts() }, [auth])
-
-  async function uploadImage(file: File): Promise<string | null> {
-    const ext = file.name.split('.').pop()
-    const path = `${editing!.id}.${ext}`
-    setUploading(true)
-    setSaveMsg('Subiendo imagen...')
-
-    const { error } = await supabase.storage
-      .from(BUCKET)
-      .upload(path, file, { upsert: true, contentType: file.type })
-
-    if (error) {
-      setSaveMsg('❌ Error al subir: ' + error.message)
-      setUploading(false)
-      return null
-    }
-
-    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
-    setUploading(false)
-    setSaveMsg('✅ Imagen subida')
-    return data.publicUrl
-  }
-
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file || !editing) return
-    const url = await uploadImage(file)
-    if (url) setEditing({ ...editing, imagen_url: url })
-  }
-
-  async function saveEdit() {
-    if (!editing) return
-    setSaveMsg('Guardando...')
-    const { error } = await supabase
-      .from('productos_oportunidades')
-      .update({
-        stock: editing.stock,
-        imagen_url: editing.imagen_url,
-        activo: editing.activo,
-        precio_outlet: editing.precio_outlet,
-      })
-      .eq('id', editing.id)
-    if (error) {
-      setSaveMsg('❌ Error: ' + error.message)
-    } else {
-      setSaveMsg('✅ Guardado')
-      setProductos(prev => prev.map(p => p.id === editing.id ? editing : p))
-      setTimeout(() => { setSaveMsg(''); setEditing(null) }, 1200)
-    }
-  }
-
-  const filtered = productos.filter(p => {
-    if (filter === 'urgente' && !p.es_urgente) return false
-    if (filter === 'ocultos' && p.activo) return false
-    if (filter === 'sin_imagen' && p.imagen_url) return false
-    if (search) {
-      const q = search.toLowerCase()
-      if (!p.nombre.toLowerCase().includes(q) && !p.id.toLowerCase().includes(q)) return false
-    }
-    return true
-  })
-
-  const sinImagen = productos.filter(p => !p.imagen_url).length
-
-  if (!auth) {
-    return (
-      <div style={s.loginWrap}>
-        <div style={s.loginBox}>
-          <div style={s.loginLogo}>DM</div>
-          <div style={s.loginTitle}>Admin Panel</div>
-          <div style={s.loginSub}>Oportunidades 2026</div>
-          <input
-            style={{ ...s.loginInput, ...(passErr ? s.loginInputErr : {}) }}
-            type="password" placeholder="Contraseña"
-            value={pass} onChange={e => setPass(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && login()} autoFocus
-          />
-          {passErr && <div style={s.errMsg}>Contraseña incorrecta</div>}
-          <button style={s.loginBtn} onClick={login}>Ingresar</button>
-        </div>
-      </div>
-    )
-  }
-
+function Modal({p, onClose}:{p:Producto;onClose:()=>void}) {
+  const d = pct(p.precio_publico, p.precio_outlet)
   return (
-    <div style={s.wrap}>
-      {/* Header */}
-      <div style={s.header}>
-        <div style={s.headerLeft}>
-          <span style={s.headerTitle}>Admin · Oportunidades 2026</span>
-          <span style={s.headerCount}>{productos.length} productos</span>
-          {sinImagen > 0 && <span style={s.headerWarn}>⚠️ {sinImagen} sin imagen</span>}
+    <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:20,backdropFilter:'blur(5px)'}}>
+      <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:540,maxHeight:'90vh',overflowY:'auto',position:'relative',boxShadow:'0 24px 80px rgba(0,0,0,0.25)',animation:'pop .22s cubic-bezier(.34,1.56,.64,1)'}}>
+        <button onClick={onClose} style={{position:'absolute',top:12,right:12,background:'rgba(0,0,0,0.08)',border:'none',width:32,height:32,borderRadius:'50%',fontSize:16,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'#888',zIndex:5}}>✕</button>
+        <div style={{height:220,background:'#f5f5f3',borderRadius:'16px 16px 0 0',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
+          <Img p={p} h={220}/>
         </div>
-        <div style={s.headerRight}>
-          <a href="/" target="_blank" style={s.viewLink}>Ver landing →</a>
-          <button style={s.logoutBtn} onClick={() => { sessionStorage.removeItem('dm_admin_auth'); setAuth(false) }}>Salir</button>
-        </div>
-      </div>
-
-      {/* Controls */}
-      <div style={s.controls}>
-        <input style={s.search} type="search" placeholder="Buscar por nombre o código…"
-          value={search} onChange={e => setSearch(e.target.value)} />
-        {(['all', 'urgente', 'sin_imagen', 'ocultos'] as const).map(f => (
-          <button key={f}
-            style={{ ...s.fBtn, ...(filter === f ? s.fBtnActive : {}) }}
-            onClick={() => setFilter(f)}>
-            {f === 'all' ? 'Todos' : f === 'urgente' ? '🔴 Urgentes' : f === 'sin_imagen' ? '📷 Sin imagen' : '🚫 Ocultos'}
-          </button>
-        ))}
-        <span style={s.counter}>{filtered.length} mostrando</span>
-      </div>
-
-      {/* Table */}
-      <div style={s.tableWrap}>
-        {loading ? <div style={s.loading}>Cargando...</div> : (
-          <table style={s.table}>
-            <thead>
-              <tr style={s.thead}>
-                <th style={s.th}>Código</th>
-                <th style={{ ...s.th, width: 280 }}>Nombre</th>
-                <th style={s.th}>Vence</th>
-                <th style={s.th}>Stock</th>
-                <th style={s.th}>Outlet</th>
-                <th style={s.th}>Imagen</th>
-                <th style={s.th}>Visible</th>
-                <th style={s.th}>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(p => (
-                <tr key={p.id} style={{ ...s.tr, ...(p.es_urgente ? s.trRojo : {}), ...(!p.activo ? s.trOculto : {}) }}>
-                  <td style={s.td}><span style={s.cod}>{p.id}</span></td>
-                  <td style={{ ...s.td, fontSize: 12, lineHeight: '1.3' }}>{p.nombre}</td>
-                  <td style={{ ...s.td, ...(p.es_urgente ? s.urgText : {}) }}>{fmtDate(p.fecha_venc)}</td>
-                  <td style={s.td}>{p.stock}</td>
-                  <td style={s.td}>{fmt(p.precio_outlet)}</td>
-                  <td style={s.td}>
-                    {p.imagen_url
-                      ? <img src={p.imagen_url} alt="" style={{ width: 40, height: 40, objectFit: 'contain', borderRadius: 4, border: '1px solid #eee', background: '#f5f5f3' }} />
-                      : <span style={{ fontSize: 11, color: '#ccc' }}>⬜ Sin imagen</span>}
-                  </td>
-                  <td style={s.td}>
-                    <span style={{ ...s.pill, background: p.activo ? '#e8f5e9' : '#fce4ec', color: p.activo ? '#2e7d32' : '#c62828' }}>
-                      {p.activo ? 'Visible' : 'Oculto'}
-                    </span>
-                  </td>
-                  <td style={s.td}>
-                    <button style={s.editBtn} onClick={() => { setEditing({ ...p }); setSaveMsg('') }}>Editar</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* Edit Modal */}
-      {editing && (
-        <div style={s.overlay} onClick={e => { if (e.target === e.currentTarget) setEditing(null) }}>
-          <div style={s.modal}>
-            <div style={s.modalTitle}>Editar producto</div>
-            <div style={s.modalCod}>{editing.id}</div>
-            <div style={s.modalNombre}>{editing.nombre}</div>
-
-            <div style={s.formGrid}>
-              <div style={s.formGroup}>
-                <label style={s.label}>Stock</label>
-                <input style={s.input} type="number" value={editing.stock}
-                  onChange={e => setEditing({ ...editing, stock: parseInt(e.target.value) || 0 })} />
-              </div>
-              <div style={s.formGroup}>
-                <label style={s.label}>Precio Outlet</label>
-                <input style={s.input} type="number" value={editing.precio_outlet}
-                  onChange={e => setEditing({ ...editing, precio_outlet: parseFloat(e.target.value) || 0 })} />
-              </div>
-            </div>
-
-            {/* IMAGE UPLOADER */}
-            <div style={s.formGroup}>
-              <label style={s.label}>Imagen del producto</label>
-
-              {/* Preview */}
-              {editing.imagen_url && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-                  <img src={editing.imagen_url} alt="preview"
-                    style={{ width: 80, height: 80, objectFit: 'contain', border: '1px solid #e4e4e2', borderRadius: 8, background: '#f5f5f3' }} />
-                  <button
-                    onClick={() => setEditing({ ...editing, imagen_url: null })}
-                    style={{ padding: '4px 10px', background: '#fce4ec', border: '1px solid #ef9a9a', borderRadius: 6, fontSize: 12, color: '#c62828', cursor: 'pointer' }}>
-                    Quitar imagen
-                  </button>
-                </div>
-              )}
-
-              {/* Upload button */}
-              <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
-              <button
-                onClick={() => fileRef.current?.click()}
-                disabled={uploading}
-                style={{
-                  width: '100%', padding: '14px', border: '2px dashed #e4e4e2', borderRadius: 10,
-                  background: '#f9f9f9', cursor: uploading ? 'wait' : 'pointer',
-                  fontSize: 14, color: '#888', fontFamily: 'Barlow, sans-serif',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  transition: 'border-color .15s, background .15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = '#f15922'; e.currentTarget.style.background = '#fff4f0' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = '#e4e4e2'; e.currentTarget.style.background = '#f9f9f9' }}
-              >
-                {uploading ? '⏳ Subiendo...' : '📷 Seleccionar imagen'}
-              </button>
-              <div style={{ fontSize: 11, color: '#bbb', marginTop: 6, textAlign: 'center' }}>
-                JPG, PNG o WEBP · Se sube automáticamente a Supabase Storage
-              </div>
-            </div>
-
-            <div style={s.formGroup}>
-              <label style={s.label}>Visibilidad</label>
-              <div style={s.toggleRow}>
-                <button style={{ ...s.toggleBtn, ...(editing.activo ? s.toggleActive : {}) }}
-                  onClick={() => setEditing({ ...editing, activo: true })}>Visible en landing</button>
-                <button style={{ ...s.toggleBtn, ...(!editing.activo ? s.toggleHide : {}) }}
-                  onClick={() => setEditing({ ...editing, activo: false })}>Ocultar</button>
-              </div>
-            </div>
-
-            {saveMsg && <div style={s.saveMsg}>{saveMsg}</div>}
-
-            <div style={s.modalActions}>
-              <button style={s.cancelBtn} onClick={() => setEditing(null)}>Cancelar</button>
-              <button style={s.saveBtn} onClick={saveEdit} disabled={uploading}>Guardar cambios</button>
+        <div style={{padding:'22px 26px 28px',fontFamily:'Barlow,sans-serif'}}>
+          {p.es_urgente&&<div style={{display:'inline-flex',alignItems:'center',gap:5,background:'#e53935',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontSize:11,fontWeight:800,padding:'3px 10px',borderRadius:4,textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>⚡ Vencimiento urgente</div>}
+          <div style={{fontSize:11,fontWeight:700,color:'#f15922',letterSpacing:2,textTransform:'uppercase',marginBottom:4,fontFamily:'Barlow Condensed,sans-serif'}}>{p.codigo}</div>
+          <div style={{fontSize:17,fontWeight:700,lineHeight:1.4,marginBottom:6,color:'#1a1a1a'}}>{p.nombre}</div>
+          <div style={{fontSize:12,color:'#aaa',marginBottom:20}}>Categoría: {p.categoria}</div>
+          <div style={{background:'linear-gradient(135deg,#fff4f0,#fff8f5)',border:'2px solid #ffd0b8',borderLeft:'5px solid #f15922',borderRadius:12,padding:'18px 20px',marginBottom:18}}>
+            <div style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:1.2,color:'#f15922',marginBottom:4}}>Precio Outlet (c/IVA)</div>
+            <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:52,fontWeight:900,color:'#f15922',lineHeight:1,letterSpacing:-1,marginBottom:8}}>{fmt(p.precio_outlet)}</div>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <span style={{fontSize:13,color:'#aaa',textDecoration:'line-through'}}>{fmt(p.precio_publico)}</span>
+              <span style={{background:'#e53935',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontWeight:800,fontSize:13,padding:'2px 8px',borderRadius:4}}>−{d}%</span>
             </div>
           </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:16}}>
+            {[{l:'Vencimiento',v:fmtDate(p.fecha_venc),r:p.es_urgente},{l:'Stock disponible',v:`${p.stock} unidades`,r:false},{l:'Lote',v:p.lote,r:false}].map(({l,v,r})=>(
+              <div key={l} style={{background:'#f7f7f5',borderRadius:8,padding:'10px 12px',border:'1px solid #e4e4e2'}}>
+                <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'#bbb',marginBottom:4}}>{l}</div>
+                <div style={{fontSize:13,fontWeight:700,color:r?'#e53935':'#1a1a1a'}}>{v}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{fontSize:12,color:'#aaa',textAlign:'center',padding:'12px 0 0',borderTop:'1px solid #e4e4e2'}}>Pedido aparte · especificar oportunidades · consultar mínimos</div>
         </div>
-      )}
+      </div>
     </div>
   )
 }
 
-const s: Record<string, React.CSSProperties> = {
-  loginWrap: { minHeight: '100vh', background: '#f0f0ee', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Barlow, sans-serif' },
-  loginBox: { background: '#fff', borderRadius: 14, padding: 40, width: 340, boxShadow: '0 8px 40px rgba(0,0,0,0.12)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 },
-  loginLogo: { width: 56, height: 56, background: '#f15922', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: 20, letterSpacing: 1 },
-  loginTitle: { fontSize: 20, fontWeight: 700, color: '#1a1a1a' },
-  loginSub: { fontSize: 12, color: '#888', marginTop: -6 },
-  loginInput: { width: '100%', padding: '10px 14px', border: '1.5px solid #e4e4e2', borderRadius: 8, fontSize: 14, outline: 'none' },
-  loginInputErr: { borderColor: '#e53935', background: '#fff5f5' },
-  errMsg: { fontSize: 12, color: '#e53935', fontWeight: 600 },
-  loginBtn: { width: '100%', padding: 11, background: '#f15922', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer', marginTop: 4 },
-  wrap: { minHeight: '100vh', background: '#f0f0ee', fontFamily: 'Barlow, sans-serif' },
-  header: { background: '#fff', borderBottom: '3px solid #f15922', padding: '12px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' },
-  headerLeft: { display: 'flex', alignItems: 'center', gap: 12 },
-  headerTitle: { fontSize: 16, fontWeight: 700, color: '#f15922' },
-  headerCount: { fontSize: 12, color: '#888', background: '#f0f0ee', padding: '3px 10px', borderRadius: 20 },
-  headerWarn: { fontSize: 12, color: '#e65100', background: '#fff3e0', padding: '3px 10px', borderRadius: 20, fontWeight: 600 },
-  headerRight: { display: 'flex', alignItems: 'center', gap: 10 },
-  viewLink: { fontSize: 12, color: '#f15922', textDecoration: 'none', fontWeight: 600 },
-  logoutBtn: { padding: '6px 14px', background: 'transparent', border: '1.5px solid #e4e4e2', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#888' },
-  controls: { background: '#fff', borderBottom: '1px solid #e4e4e2', padding: '9px 28px', display: 'flex', alignItems: 'center', gap: 10 },
-  search: { padding: '7px 13px', border: '1.5px solid #e4e4e2', borderRadius: 6, fontSize: 13, width: 220, background: '#f0f0ee' },
-  fBtn: { padding: '5px 12px', border: '1.5px solid #e4e4e2', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: '#f0f0ee', color: '#888' },
-  fBtnActive: { background: '#f15922', color: '#fff', borderColor: '#f15922' },
-  counter: { marginLeft: 'auto', fontSize: 12, color: '#888', fontWeight: 600 },
-  tableWrap: { padding: '20px 28px', overflowX: 'auto' },
-  loading: { textAlign: 'center', padding: 60, color: '#888' },
-  table: { width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', fontSize: 13 },
-  thead: { background: '#f7f7f5' },
-  th: { padding: '10px 12px', textAlign: 'left', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', borderBottom: '1px solid #e4e4e2' },
-  tr: { borderBottom: '1px solid #f0f0ee' },
-  trRojo: { background: '#fff9f9' },
-  trOculto: { opacity: 0.5 },
-  td: { padding: '10px 12px', verticalAlign: 'middle' },
-  cod: { fontFamily: 'monospace', fontSize: 11, background: '#f0f0ee', padding: '2px 6px', borderRadius: 4 },
-  urgText: { color: '#e53935', fontWeight: 700 },
-  pill: { padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600 },
-  editBtn: { padding: '5px 12px', background: '#f15922', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' },
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, backdropFilter: 'blur(4px)' },
-  modal: { background: '#fff', borderRadius: 14, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto', padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' },
-  modalTitle: { fontSize: 16, fontWeight: 700, marginBottom: 4 },
-  modalCod: { fontFamily: 'monospace', fontSize: 11, color: '#f15922', fontWeight: 700, letterSpacing: 1, marginBottom: 4 },
-  modalNombre: { fontSize: 13, color: '#444', lineHeight: 1.4, marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid #e4e4e2' },
-  formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 },
-  formGroup: { display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 14 },
-  label: { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888' },
-  input: { padding: '8px 12px', border: '1.5px solid #e4e4e2', borderRadius: 7, fontSize: 13, outline: 'none' },
-  toggleRow: { display: 'flex', gap: 8 },
-  toggleBtn: { flex: 1, padding: 8, border: '1.5px solid #e4e4e2', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: '#f0f0ee', color: '#888' },
-  toggleActive: { background: '#e8f5e9', borderColor: '#4caf50', color: '#2e7d32' },
-  toggleHide: { background: '#fce4ec', borderColor: '#e53935', color: '#c62828' },
-  saveMsg: { fontSize: 13, fontWeight: 600, padding: '8px 12px', background: '#f0f0ee', borderRadius: 6, marginBottom: 12, textAlign: 'center' },
-  modalActions: { display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 },
-  cancelBtn: { padding: '9px 20px', background: 'transparent', border: '1.5px solid #e4e4e2', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#888' },
-  saveBtn: { padding: '9px 24px', background: '#f15922', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+function CardGrid({p,onClick}:{p:Producto;onClick:()=>void}) {
+  const d = pct(p.precio_publico, p.precio_outlet)
+  const [hov,setHov] = useState(false)
+  const shadow = hov
+    ? (p.es_urgente?'0 0 0 2px #e53935,0 0 24px 5px rgba(229,57,53,.22),0 8px 20px rgba(0,0,0,.10)':'0 0 0 2px #f15922,0 0 20px 4px rgba(241,89,34,.20),0 8px 20px rgba(0,0,0,.10)')
+    : (p.es_urgente?'0 0 0 1px #ffd0ce,0 0 16px 3px rgba(229,57,53,.18),0 3px 10px rgba(0,0,0,.05)':'0 2px 8px rgba(0,0,0,.05)')
+  return (
+    <div onClick={onClick} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+      style={{background:'#fff',borderRadius:12,border:p.es_urgente?'2px solid #ffd0ce':'1.5px solid #e4e4e2',display:'flex',flexDirection:'column',cursor:'pointer',position:'relative',overflow:'hidden',transition:'transform .18s,box-shadow .18s',transform:hov?'translateY(-4px)':'none',boxShadow:shadow}}>
+      {p.es_urgente&&<div style={{position:'absolute',top:8,left:8,zIndex:2,background:'#e53935',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontSize:9,fontWeight:800,padding:'2px 8px',borderRadius:4,letterSpacing:1,textTransform:'uppercase'}}>⚡ Urgente</div>}
+      <div style={{height:120,background:p.es_urgente?'#fff8f7':'#f7f7f5',borderBottom:'1px solid #e4e4e2',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,overflow:'hidden'}}>
+        <Img p={p} h={120}/>
+      </div>
+      <div style={{padding:'10px 12px 12px',display:'flex',flexDirection:'column',gap:6,flex:1}}>
+        <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:10,fontWeight:700,color:'#ccc',letterSpacing:1.2,textTransform:'uppercase'}}>{p.codigo}</div>
+        <div style={{fontSize:12,fontWeight:600,lineHeight:1.4,color:'#1a1a1a',display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',overflow:'hidden',minHeight:50}}>{p.nombre}</div>
+        <div style={{marginTop:'auto',paddingTop:8,borderTop:'1px solid #f0f0ee'}}>
+          <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'#f15922',marginBottom:2}}>Precio Outlet</div>
+          <div style={{display:'flex',alignItems:'baseline',gap:8}}>
+            <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:26,fontWeight:900,color:'#f15922',lineHeight:1,letterSpacing:-0.5}}>{fmt(p.precio_outlet)}</div>
+            <div style={{background:d>=60?'#e53935':d>=40?'#f15922':'#555',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontSize:16,fontWeight:900,padding:'2px 7px',borderRadius:5,lineHeight:1}}>−{d}%</div>
+          </div>
+          <div style={{fontSize:11,color:'#ccc',textDecoration:'line-through',marginTop:2}}>{fmt(p.precio_publico)}</div>
+        </div>
+        <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+          <span style={{display:'inline-flex',alignItems:'center',gap:3,fontSize:10,fontWeight:600,color:p.es_urgente?'#e53935':'#888',background:p.es_urgente?'#fff5f5':'#f5f5f3',padding:'3px 7px',borderRadius:4,border:`1px solid ${p.es_urgente?'#ffd0ce':'#e4e4e2'}`}}>🗓 {fmtDate(p.fecha_venc)}</span>
+          <span style={{display:'inline-flex',alignItems:'center',gap:3,fontSize:10,fontWeight:600,color:'#888',background:'#f5f5f3',padding:'3px 7px',borderRadius:4,border:'1px solid #e4e4e2'}}>📦 {p.stock}</span>
+        </div>
+        <div style={{fontSize:9,color:'#ccc',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Lote: {p.lote}</div>
+      </div>
+    </div>
+  )
+}
+
+function CardList({p,onClick}:{p:Producto;onClick:()=>void}) {
+  const d = pct(p.precio_publico, p.precio_outlet)
+  const [hov,setHov] = useState(false)
+  return (
+    <div onClick={onClick} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+      style={{background:'#fff',borderRadius:10,border:p.es_urgente?'1.5px solid #ffd0ce':'1.5px solid #e4e4e2',display:'flex',alignItems:'center',gap:16,padding:'12px 18px',cursor:'pointer',transition:'box-shadow .15s,transform .15s',transform:hov?'translateX(3px)':'',boxShadow:hov?'0 0 0 1.5px #f15922,0 0 16px 3px rgba(241,89,34,.18)':(p.es_urgente?'0 0 12px 2px rgba(229,57,53,.15)':'0 2px 6px rgba(0,0,0,.04)')}}>
+      <div style={{width:64,height:64,flexShrink:0,background:'#f5f5f3',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
+        <Img p={p} h={64}/>
+      </div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:10,color:'#ccc',fontFamily:'Barlow Condensed,sans-serif',fontWeight:700,letterSpacing:1,textTransform:'uppercase',marginBottom:2}}>{p.codigo}</div>
+        <div style={{fontSize:13,fontWeight:600,lineHeight:1.35,color:'#1a1a1a',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.nombre}</div>
+        <div style={{fontSize:11,color:'#ccc',marginTop:3}}>Lote: {p.lote} · {p.categoria}</div>
+      </div>
+      <div style={{flexShrink:0,textAlign:'center',minWidth:90}}>
+        <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'#bbb',marginBottom:3}}>Vence</div>
+        <div style={{fontSize:13,fontWeight:700,color:p.es_urgente?'#e53935':'#1a1a1a'}}>{fmtDate(p.fecha_venc)}</div>
+      </div>
+      <div style={{flexShrink:0,textAlign:'center',minWidth:70}}>
+        <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'#bbb',marginBottom:3}}>Stock</div>
+        <div style={{fontSize:13,fontWeight:700}}>{p.stock}</div>
+      </div>
+      <div style={{flexShrink:0,textAlign:'right',minWidth:150}}>
+        <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'#f15922',marginBottom:2}}>Precio Outlet</div>
+        <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:24,fontWeight:900,color:'#f15922',lineHeight:1}}>{fmt(p.precio_outlet)}</div>
+        <div style={{display:'flex',alignItems:'center',gap:6,justifyContent:'flex-end',marginTop:3}}>
+          <span style={{fontSize:11,color:'#ccc',textDecoration:'line-through'}}>{fmt(p.precio_publico)}</span>
+          <span style={{background:'#e53935',color:'#fff',fontSize:10,fontWeight:800,padding:'1px 6px',borderRadius:3,fontFamily:'Barlow Condensed,sans-serif'}}>−{d}%</span>
+        </div>
+      </div>
+      {p.es_urgente&&<div style={{flexShrink:0,background:'#e53935',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontSize:9,fontWeight:800,padding:'3px 7px',borderRadius:3,letterSpacing:0.8,textTransform:'uppercase'}}>⚡</div>}
+    </div>
+  )
+}
+
+export default function LandingClient({productos}:{productos:Producto[]}) {
+  const [filterUrg,setFilterUrg] = useState(false)
+  const [cat,setCat] = useState('Todas')
+  const [sortIdx,setSortIdx] = useState(1)
+  const [search,setSearch] = useState('')
+  const [view,setView] = useState<'grid'|'list'>('grid')
+  const [selected,setSelected] = useState<Producto|null>(null)
+
+  const urgCount = useMemo(()=>productos.filter(p=>p.es_urgente).length,[productos])
+
+  const filtered = useMemo(()=>{
+    let items = productos.filter(p=>{
+      if(filterUrg&&!p.es_urgente) return false
+      if(cat!=='Todas'&&p.categoria!==cat) return false
+      if(search){const q=search.toLowerCase();if(!p.nombre.toLowerCase().includes(q)&&!p.codigo.toLowerCase().includes(q)) return false}
+      return true
+    })
+    const sorted = [...items].sort(SORTS[sortIdx].fn)
+    return [...sorted.filter(p=>p.es_urgente),...sorted.filter(p=>!p.es_urgente)]
+  },[productos,filterUrg,cat,sortIdx,search])
+
+  return(<>
+    <style>{`@keyframes pop{from{opacity:0;transform:scale(.93)}to{opacity:1;transform:scale(1)}}*{box-sizing:border-box}body{margin:0;font-family:'Barlow',sans-serif;background:#f0f0ee}input,button,select{font-family:inherit}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#ddd;border-radius:3px}`}</style>
+
+    {/* HEADER */}
+    <header style={{background:'#fff',borderBottom:'3px solid #f15922',padding:'14px 32px',display:'flex',alignItems:'center',justifyContent:'space-between',boxShadow:'0 2px 20px rgba(0,0,0,0.07)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:20}}>
+        <img src={LOGO_B64} alt="Dental Medrano" style={{height:46,width:'auto'}}/>
+        <div style={{width:1,height:40,background:'#e4e4e2'}}/>
+      </div>
+      <div style={{textAlign:'center'}}>
+        <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:'clamp(22px,4vw,34px)',fontWeight:900,color:'#f15922',letterSpacing:3,textTransform:'uppercase',lineHeight:1}}>Oportunidades 2026</div>
+        <div style={{fontSize:11,color:'#aaa',letterSpacing:.5,fontWeight:500,textTransform:'uppercase',marginTop:4}}>Precios especiales · Stock limitado · Consultar mínimos</div>
+      </div>
+      <div style={{background:'#fff5f5',border:'1.5px solid #ffd0ce',borderRadius:10,padding:'8px 18px',textAlign:'center'}}>
+        <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:30,fontWeight:900,color:'#e53935',lineHeight:1}}>{urgCount}</div>
+        <div style={{fontSize:10,fontWeight:700,color:'#e53935',textTransform:'uppercase',letterSpacing:.5}}>Venc. urgente</div>
+      </div>
+    </header>
+
+    {/* CONTROLS */}
+    <div style={{background:'#fff',borderBottom:'1px solid #e4e4e2',padding:'10px 32px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+      <input type="search" placeholder="🔍  Buscar por nombre o código…" value={search} onChange={e=>setSearch(e.target.value)}
+        style={{padding:'7px 13px',border:'1.5px solid #e4e4e2',borderRadius:8,fontSize:13,width:240,background:'#f7f7f5',color:'#1a1a1a',outline:'none'}}/>
+      <button onClick={()=>setFilterUrg(v=>!v)}
+        style={{padding:'7px 14px',borderRadius:8,border:'1.5px solid',fontSize:13,fontWeight:700,cursor:'pointer',transition:'all .15s',background:filterUrg?'#e53935':'#fff5f5',borderColor:filterUrg?'#e53935':'#ffd0ce',color:filterUrg?'#fff':'#e53935',whiteSpace:'nowrap'}}>
+        ⚡ Urgentes
+      </button>
+      <div style={{width:1,height:28,background:'#e4e4e2'}}/>
+      <select value={sortIdx} onChange={e=>setSortIdx(Number(e.target.value))}
+        style={{padding:'7px 12px',border:'1.5px solid #e4e4e2',borderRadius:8,fontSize:13,background:'#f7f7f5',color:'#555',cursor:'pointer',outline:'none'}}>
+        {SORTS.map((s,i)=><option key={i} value={i}>{s.label}</option>)}
+      </select>
+      <div style={{flex:1}}/>
+      <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:14,color:'#aaa',fontWeight:600}}>{filtered.length} productos</div>
+      <div style={{width:1,height:28,background:'#e4e4e2'}}/>
+      {(['grid','list'] as const).map(v=>(
+        <button key={v} onClick={()=>setView(v)} title={v==='grid'?'Cuadrícula':'Lista'}
+          style={{width:34,height:34,borderRadius:7,border:'1.5px solid',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:17,transition:'all .15s',background:view===v?'#f15922':'#f7f7f5',borderColor:view===v?'#f15922':'#e4e4e2',color:view===v?'#fff':'#888'}}>
+          {v==='grid'?'⊞':'☰'}
+        </button>
+      ))}
+    </div>
+
+    {/* CATEGORY TABS */}
+    <div style={{background:'#fff',borderBottom:'1px solid #e4e4e2',padding:'0 32px',display:'flex',gap:0,overflowX:'auto'}}>
+      {CATS.map(c=>(
+        <button key={c} onClick={()=>setCat(c)}
+          style={{padding:'10px 16px',border:'none',borderBottom:`3px solid ${cat===c?'#f15922':'transparent'}`,background:'transparent',fontSize:13,fontWeight:cat===c?700:500,color:cat===c?'#f15922':'#888',cursor:'pointer',whiteSpace:'nowrap',transition:'all .15s'}}>
+          {c}
+        </button>
+      ))}
+    </div>
+
+    {/* PRODUCTS */}
+    <div style={{maxWidth:1700,margin:'16px auto 60px',padding:'0 12px',...(view==='grid'?{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:12}:{display:'flex',flexDirection:'column',gap:8})}}>
+      {filtered.length===0&&<div style={{gridColumn:'1/-1',textAlign:'center',padding:80,color:'#bbb',fontSize:16}}>No se encontraron productos</div>}
+      {filtered.map(p=>
+        view==='grid'
+          ?<CardGrid key={p.id} p={p} onClick={()=>setSelected(p)}/>
+          :<CardList key={p.id} p={p} onClick={()=>setSelected(p)}/>
+      )}
+    </div>
+
+    {/* FOOTER */}
+    <footer style={{background:'#111',color:'#666',textAlign:'center',padding:'24px 20px',fontSize:13}}>
+      <strong style={{color:'#fff'}}>Dental Medrano</strong>{' · '}
+      <a href="https://dentalmedrano.com" target="_blank" rel="noreferrer" style={{color:'#f15922',textDecoration:'none'}}>dentalmedrano.com</a>
+      <div style={{marginTop:8,fontSize:11,color:'#444',maxWidth:540,marginLeft:'auto',marginRight:'auto'}}>
+        Pedido aparte, especificar oportunidades. El mínimo de unidades correspondiente a cada artículo es el que está en la lista 1.
+      </div>
+    </footer>
+
+    {selected&&<Modal p={selected} onClose={()=>setSelected(null)}/>}
+  </>)
 }
