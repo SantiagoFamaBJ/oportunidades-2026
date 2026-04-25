@@ -9,6 +9,7 @@ export const supabaseAdmin = () => createClient(url, service)
 
 export type Producto = {
   id: string
+  codigo: string
   nombre: string
   lote: string
   fecha_venc: string
@@ -17,5 +18,6 @@ export type Producto = {
   precio_outlet: number
   es_urgente: boolean
   imagen_url: string | null
+  categoria: string
   activo: boolean
 }
