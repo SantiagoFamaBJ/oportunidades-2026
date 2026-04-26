@@ -22,6 +22,7 @@ export default function AdminPage(): JSX.Element {
   const [editing, setEditing] = useState<Producto | null>(null)
   const [saveMsg, setSaveMsg] = useState('')
   const [filter, setFilter] = useState<'all'|'urgente'|'ocultos'|'sin_imagen'>('all')
+  const [catFilter, setCatFilter] = useState('all')
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -121,6 +122,7 @@ export default function AdminPage(): JSX.Element {
     if (filter === 'urgente' && !p.es_urgente) return false
     if (filter === 'ocultos' && p.activo) return false
     if (filter === 'sin_imagen' && p.imagen_url) return false
+    if (catFilter !== 'all' && p.categoria !== catFilter) return false
     if (search) {
       const q = search.toLowerCase()
       if (!p.nombre.toLowerCase().includes(q) && !p.id.toLowerCase().includes(q)) return false
@@ -188,6 +190,12 @@ export default function AdminPage(): JSX.Element {
             {f==='all'?'Todos':f==='urgente'?'🔴 Urgentes':f==='sin_imagen'?'📷 Sin imagen':'🚫 Ocultos'}
           </button>
         ))}
+        <div style={{width:1,height:24,background:'#e4e4e2',flexShrink:0}}/>
+        <select value={catFilter} onChange={e=>setCatFilter(e.target.value)}
+          style={{padding:'5px 10px',border:'1.5px solid #e4e4e2',borderRadius:6,fontSize:12,background:'#f0f0ee',color:'#555',cursor:'pointer',outline:'none'}}>
+          <option value="all">Todas las categorías</option>
+          {cats.map(c=><option key={c} value={c}>{c}</option>)}
+        </select>
         <span style={s.counter}>{filtered.length} mostrando</span>
       </div>
 
