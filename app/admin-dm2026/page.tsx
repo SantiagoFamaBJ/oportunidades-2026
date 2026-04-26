@@ -89,6 +89,7 @@ export default function AdminPage(): JSX.Element {
       precio_outlet: editing.precio_outlet,
       lote: editing.lote,
       categoria: editing.categoria,
+      nombre: editing.nombre,
     }).eq('id', editing.id)
     if (error) {
       setSaveMsg('❌ Error: ' + error.message)
@@ -244,6 +245,12 @@ export default function AdminPage(): JSX.Element {
             <div style={s.modalTitle}>Editar producto</div>
             <div style={s.modalCod}>{editing.id}</div>
             <div style={s.modalNombre}>{editing.nombre}</div>
+
+            <div style={s.formGroup}>
+              <label style={s.label}>Nombre</label>
+              <input style={s.input} type="text" value={editing.nombre||''}
+                onChange={e=>setEditing({...editing,nombre:e.target.value})}/>
+            </div>
 
             <div style={s.formGrid}>
               <div style={s.formGroup}>
