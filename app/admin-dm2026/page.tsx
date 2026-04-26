@@ -82,7 +82,7 @@ export default function AdminPage(): JSX.Element {
   async function saveEdit() {
     if (!editing) return
     setSaveMsg('Guardando...')
-    const { error } = await supabase.from('productos_oportunidades').update({
+    const { error, data } = await supabase.from('productos_oportunidades').update({
       stock: editing.stock,
       imagen_url: editing.imagen_url,
       activo: editing.activo,
@@ -90,16 +90,17 @@ export default function AdminPage(): JSX.Element {
       lote: editing.lote,
       categoria: editing.categoria,
       nombre: editing.nombre,
-    }).eq('id', editing.id)
+    }).eq('id', editing.id).select()
     if (error) {
-      setSaveMsg('❌ Error: ' + error.message)
+      setSaveMsg('❌ Error: ' + error.message + ' (' + error.code + ')')
+    } else if (!data || data.length === 0) {
+      setSaveMsg('⚠️ No se actualizó. Falta policy UPDATE en Supabase.')
     } else {
       setSaveMsg('✅ Guardado')
       setProductos(prev => prev.map(p => p.id === editing.id ? editing : p))
-      // Actualizar lista de categorías
       const updatedCats = Array.from(new Set([...cats, editing.categoria].filter(Boolean))).sort()
       setCats(updatedCats)
-      setTimeout(() => { setSaveMsg(''); setEditing(null) }, 1200)
+      setTimeout(() => { setSaveMsg(''); setEditing(null) }, 1500)
     }
   }
 
