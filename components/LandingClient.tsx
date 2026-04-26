@@ -170,21 +170,17 @@ export default function LandingClient({productos}:{productos:Producto[]}) {
       body{margin:0;font-family:'Barlow',sans-serif;background:#f0f0ee}
       input,button,select{font-family:inherit}
       ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#ddd;border-radius:3px}
-      .dm-header{background:#fff;border-bottom:3px solid #f15922;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 20px rgba(0,0,0,0.07)}
-      .dm-logo{height:40px;width:auto}
-      .dm-title{font-family:'Barlow Condensed',sans-serif;font-size:clamp(18px,4vw,32px);font-weight:900;color:#f15922;letter-spacing:2px;text-transform:uppercase;line-height:1;text-align:center}
-      .dm-sub{font-size:10px;color:#aaa;letter-spacing:.5px;font-weight:500;text-transform:uppercase;margin-top:3px;text-align:center}
-      .dm-urg-box{background:#fff5f5;border:1.5px solid #ffd0ce;border-radius:10px;padding:6px 14px;text-align:center;flex-shrink:0}
-      .dm-urg-n{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;color:#e53935;line-height:1}
-      .dm-urg-l{font-size:9px;font-weight:700;color:#e53935;text-transform:uppercase;letter-spacing:.5px}
+      .dm-header{background:#fff;border-bottom:3px solid #f15922;padding:14px 24px;display:flex;flex-direction:column;align-items:center;gap:8px;box-shadow:0 2px 20px rgba(0,0,0,0.07)}
+      .dm-logo{height:44px;width:auto}
+      .dm-title{font-family:'Barlow Condensed',sans-serif;font-size:clamp(22px,5vw,36px);font-weight:900;color:#f15922;letter-spacing:3px;text-transform:uppercase;line-height:1;text-align:center}
       .dm-controls{background:#fff;border-bottom:1px solid #e4e4e2;padding:8px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
       .dm-search{padding:7px 12px;border:1.5px solid #e4e4e2;border-radius:8px;font-size:13px;flex:1;min-width:120px;max-width:280px;background:#f7f7f5;color:#1a1a1a;outline:none}
       .dm-tabs{background:#fff;border-bottom:1px solid #e4e4e2;display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch}
       .dm-tab{padding:10px 14px;border:none;border-bottom:3px solid transparent;background:transparent;font-size:13px;font-weight:500;color:#888;cursor:pointer;white-space:nowrap;transition:all .15s}
       .dm-tab.active{color:#f15922;font-weight:700;border-bottom-color:#f15922}
       @media(max-width:600px){
-        .dm-header{padding:10px 14px}
-        .dm-logo{height:32px}
+        .dm-header{padding:12px 14px;gap:6px}
+        .dm-logo{height:36px}
         .dm-controls{padding:8px 12px}
         .dm-search{max-width:100%}
       }
@@ -193,14 +189,7 @@ export default function LandingClient({productos}:{productos:Producto[]}) {
     {/* HEADER */}
     <header className="dm-header">
       <img src={LOGO_B64} alt="Dental Medrano" className="dm-logo"/>
-      <div>
-        <div className="dm-title">Oportunidades 2026</div>
-        <div className="dm-sub">Precios especiales · Stock limitado · Consultar mínimos</div>
-      </div>
-      <div className="dm-urg-box">
-        <div className="dm-urg-n">{urgCount}</div>
-        <div className="dm-urg-l">Venc. urgente</div>
-      </div>
+      <div className="dm-title">Oportunidades 2026</div>
     </header>
 
     {/* CONTROLS */}
