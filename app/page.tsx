@@ -13,10 +13,24 @@ export default function Home() {
       .select('*')
       .eq('activo', true)
       .order('fecha_venc', { ascending: true })
-      .then(({ data }) => {
-        setProductos((data || []) as Producto[])
+      .then(({ data, error }) => {
+        if (!error) setProductos((data || []) as Producto[])
         setLoading(false)
       })
+  }, [])
+
+  // Refrescar cuando la pestaña vuelve a estar activa
+  useEffect(() => {
+    const onFocus = () => {
+      supabase
+        .from('productos_oportunidades')
+        .select('*')
+        .eq('activo', true)
+        .order('fecha_venc', { ascending: true })
+        .then(({ data }) => { if (data) setProductos(data as Producto[]) })
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
   }, [])
 
   if (loading) return (
