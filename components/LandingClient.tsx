@@ -174,7 +174,7 @@ export default function LandingClient({productos}:{productos:Producto[]}) {
       .dm-logo{height:46px;width:auto;flex-shrink:0}
       .dm-title{font-family:'Barlow Condensed',sans-serif;font-size:clamp(22px,4vw,34px);font-weight:900;color:#f15922;letter-spacing:3px;text-transform:uppercase;line-height:1;text-align:center;flex:1}
       .dm-controls{background:#fff;border-bottom:1px solid #e4e4e2;padding:8px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-      .dm-search{padding:7px 12px;border:1.5px solid #e4e4e2;border-radius:8px;font-size:13px;flex:1;min-width:120px;max-width:280px;background:#f7f7f5;color:#1a1a1a;outline:none}
+      .dm-search{padding:7px 12px;border:1.5px solid #e4e4e2;border-radius:8px;font-size:13px;flex:1;min-width:120px;background:#f7f7f5;color:#1a1a1a;outline:none}
       .dm-tabs{background:#fff;border-bottom:1px solid #e4e4e2;display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch}
       .dm-tab{padding:10px 14px;border:none;border-bottom:3px solid transparent;background:transparent;font-size:13px;font-weight:500;color:#888;cursor:pointer;white-space:nowrap;transition:all .15s}
       .dm-tab.active{color:#f15922;font-weight:700;border-bottom-color:#f15922}
@@ -195,23 +195,25 @@ export default function LandingClient({productos}:{productos:Producto[]}) {
 
     {/* CONTROLS */}
     <div className="dm-controls">
-      <input type="search" className="dm-search" placeholder="🔍 Buscar…" value={search} onChange={e=>setSearch(e.target.value)}/>
-      <button onClick={()=>setFilterUrg(v=>!v)}
-        style={{padding:'7px 12px',borderRadius:8,border:'1.5px solid',fontSize:12,fontWeight:700,cursor:'pointer',flexShrink:0,background:filterUrg?'#e53935':'#fff5f5',borderColor:filterUrg?'#e53935':'#ffd0ce',color:filterUrg?'#fff':'#e53935'}}>
-        ⚡ Urgentes
-      </button>
-      <select value={sortIdx} onChange={e=>setSortIdx(Number(e.target.value))}
-        style={{padding:'7px 10px',border:'1.5px solid #e4e4e2',borderRadius:8,fontSize:12,background:'#f7f7f5',color:'#555',cursor:'pointer',outline:'none',flexShrink:0}}>
-        {SORTS.map((s,i)=><option key={i} value={i}>{s.label}</option>)}
-      </select>
-      <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
-        <span style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:13,color:'#aaa',fontWeight:600}}>{filtered.length}</span>
-        {(['grid','list'] as const).map(v=>(
-          <button key={v} onClick={()=>setView(v)}
-            style={{width:32,height:32,borderRadius:7,border:'1.5px solid',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,background:view===v?'#f15922':'#f7f7f5',borderColor:view===v?'#f15922':'#e4e4e2',color:view===v?'#fff':'#888'}}>
-            {v==='grid'?'⊞':'☰'}
-          </button>
-        ))}
+      <div style={{display:'flex',gap:8,width:'100%',flexWrap:'wrap'}}>
+        <input type="search" className="dm-search" placeholder="🔍 Buscar…" value={search} onChange={e=>setSearch(e.target.value)}/>
+        <button onClick={()=>setFilterUrg(v=>!v)}
+          style={{padding:'7px 12px',borderRadius:8,border:'1.5px solid',fontSize:12,fontWeight:700,cursor:'pointer',flexShrink:0,background:filterUrg?'#e53935':'#fff5f5',borderColor:filterUrg?'#e53935':'#ffd0ce',color:filterUrg?'#fff':'#e53935'}}>
+          ⚡ Urgentes
+        </button>
+        <select value={sortIdx} onChange={e=>setSortIdx(Number(e.target.value))}
+          style={{padding:'7px 10px',border:'1.5px solid #e4e4e2',borderRadius:8,fontSize:12,background:'#f7f7f5',color:'#555',cursor:'pointer',outline:'none',flex:1,minWidth:130}}>
+          {SORTS.map((s,i)=><option key={i} value={i}>{s.label}</option>)}
+        </select>
+        <div style={{display:'flex',alignItems:'center',gap:6,marginLeft:'auto',flexShrink:0}}>
+          <span style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:13,color:'#aaa',fontWeight:600}}>{filtered.length}</span>
+          {(['grid','list'] as const).map(v=>(
+            <button key={v} onClick={()=>setView(v)}
+              style={{width:32,height:32,borderRadius:7,border:'1.5px solid',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,background:view===v?'#f15922':'#f7f7f5',borderColor:view===v?'#f15922':'#e4e4e2',color:view===v?'#fff':'#888'}}>
+              {v==='grid'?'⊞':'☰'}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
 
