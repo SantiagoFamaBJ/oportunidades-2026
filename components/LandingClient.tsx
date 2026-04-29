@@ -270,8 +270,7 @@ export default function LandingClient({productos}:{productos:Producto[]}) {
       if(search){const q=search.toLowerCase();if(!p.nombre.toLowerCase().includes(q)&&!p.codigo.toLowerCase().includes(q)) return false}
       return true
     })
-    const sorted = [...items].sort(SORTS[sortIdx].fn)
-    return [...sorted.filter(p=>p.es_urgente),...sorted.filter(p=>!p.es_urgente)]
+    return [...items].sort(SORTS[sortIdx].fn)
   },[productos,filterUrg,cat,sortIdx,search])
 
   function addToCart(p: Producto) {
