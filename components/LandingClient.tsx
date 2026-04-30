@@ -55,8 +55,12 @@ function Cart({ items, onClose, onRemove, onQty }: {
 }) {
   function sendWA() {
     if (items.length === 0) return
-    const lines = items.map(i => `• ${i.producto.nombre} — x${i.qty}`).join('\n')
-    const msg = `¡Hola! Me gustaría consultar por stock y cantidades de las siguientes oportunidades:\n\n${lines}\n\nAguardo respuesta. Saludos.`
+    const lines = items.map(i => {
+      const subtotal = Math.round(i.producto.precio_outlet * i.qty)
+      return `• ${i.producto.nombre} — x${i.qty} — $\u00a0${subtotal.toLocaleString('es-AR')}`
+    }).join('\n')
+    const total = items.reduce((sum, i) => sum + Math.round(i.producto.precio_outlet * i.qty), 0)
+    const msg = `¡Hola! Me gustaría consultar por las siguientes oportunidades:\n\n${lines}\n\nTotal aprox: $\u00a0${total.toLocaleString('es-AR')}\n\nAguardo respuesta. Saludos.`
     window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`, '_blank')
   }
 
@@ -103,6 +107,12 @@ function Cart({ items, onClose, onRemove, onQty }: {
         {/* Footer */}
         {items.length > 0 && (
           <div style={{padding:'14px 16px',borderTop:'1px solid #e4e4e2',flexShrink:0}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+              <span style={{fontSize:13,color:'#888',fontWeight:600}}>Total aprox.</span>
+              <span style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:22,fontWeight:900,color:'#f15922'}}>
+                {fmt(items.reduce((sum,i)=>sum+Math.round(i.producto.precio_outlet*i.qty),0))}
+              </span>
+            </div>
             <button onClick={sendWA} style={{
               width:'100%',padding:'13px',background:'#25D366',color:'#fff',
               border:'none',borderRadius:10,fontSize:15,fontWeight:800,
