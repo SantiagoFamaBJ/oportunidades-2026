@@ -57,7 +57,7 @@ function Cart({ items, onClose, onRemove, onQty }: {
     if (items.length === 0) return
     const lines = items.map(i => {
       const subtotal = Math.round(i.producto.precio_outlet * i.qty)
-      return `• ${i.producto.nombre} — x${i.qty} — $\u00a0${subtotal.toLocaleString('es-AR')}`
+      return `• ${i.producto.nombre} - Lote: ${i.producto.lote} - Cant: ${i.qty} - $\u00a0${subtotal.toLocaleString('es-AR')}`
     }).join('\n')
     const total = items.reduce((sum, i) => sum + Math.round(i.producto.precio_outlet * i.qty), 0)
     const msg = `¡Hola! Me gustaría consultar por las siguientes oportunidades:\n\n${lines}\n\nTotal aprox: $\u00a0${total.toLocaleString('es-AR')}\n\nAguardo respuesta. Saludos.`
