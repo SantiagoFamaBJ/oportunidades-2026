@@ -89,6 +89,7 @@ export default function AdminPage(): JSX.Element {
       activo: editing.activo,
       precio_outlet: editing.precio_outlet,
       precio_publico: editing.precio_publico,
+      promo: editing.promo,
       lote: editing.lote,
       categoria: editing.categoria,
       nombre: editing.nombre,
@@ -307,6 +308,12 @@ export default function AdminPage(): JSX.Element {
               <label style={s.label}>Precio distribuidor (tachado en la web)</label>
               <input style={s.input} type="number" value={editing.precio_publico}
                 onChange={e=>setEditing({...editing,precio_publico:parseFloat(e.target.value)||0})}/>
+            </div>
+
+            <div style={s.formGroup}>
+              <label style={s.label}>Promo (ej: 1+1) — dejar vacío si no hay promo</label>
+              <input style={s.input} type="text" placeholder="Sin promo" value={editing.promo||''}
+                onChange={e=>setEditing({...editing,promo:e.target.value||null})}/>
             </div>
 
             <div style={s.formGroup}>

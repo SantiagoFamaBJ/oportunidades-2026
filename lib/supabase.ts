@@ -20,4 +20,5 @@ export type Producto = {
   imagen_url: string | null
   categoria: string
   activo: boolean
+  promo: string | null
 }

@@ -151,9 +151,10 @@ function Modal({p, onClose, onAdd}:{p:Producto;onClose:()=>void;onAdd:(p:Product
             <div style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:1.2,color:'#f15922',marginBottom:4}}>Precio Outlet</div>
             <div style={{display:'flex',alignItems:'baseline',gap:10,marginBottom:6}}>
               <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:44,fontWeight:900,color:'#f15922',lineHeight:1,letterSpacing:-1}}>{fmt(p.precio_outlet)}</div>
-              <div style={{background:'#e53935',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontWeight:900,fontSize:16,padding:'3px 8px',borderRadius:5}}>−{d}%</div>
+              <div style={{background:p.promo?'#16a34a':'#e53935',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontWeight:900,fontSize:16,padding:'3px 8px',borderRadius:5}}>{p.promo ? p.promo : `−${d}%`}</div>
             </div>
             <div style={{fontSize:13,color:'#aaa',marginBottom:6}}>Precio distribuidor: <s>{fmt(p.precio_publico)}</s></div>
+            {p.promo && <div style={{fontSize:12,color:'#16a34a',fontWeight:700,marginBottom:6}}>🎁 Promo {p.promo}: comprás 1 y te llevás otra unidad sin cargo</div>}
             <div style={{fontSize:11,color:'#b06030',fontWeight:700,background:'#fff0e6',padding:'4px 8px',borderRadius:5,display:'inline-block'}}>+ IVA no incluido</div>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:16}}>
@@ -200,7 +201,7 @@ function CardGrid({p,onClick,onAdd,inCart}:{p:Producto;onClick:()=>void;onAdd:(p
             <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'#f15922',marginBottom:2}}>Precio Outlet</div>
             <div style={{display:'flex',alignItems:'baseline',gap:6}}>
               <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:24,fontWeight:900,color:'#f15922',lineHeight:1,letterSpacing:-0.5}}>{fmt(p.precio_outlet)}</div>
-              <div style={{background:d>=60?'#e53935':d>=40?'#f15922':'#555',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontSize:14,fontWeight:900,padding:'2px 6px',borderRadius:4,lineHeight:1}}>−{d}%</div>
+              <div style={{background:p.promo?'#16a34a':(d>=60?'#e53935':d>=40?'#f15922':'#555'),color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontSize:14,fontWeight:900,padding:'2px 6px',borderRadius:4,lineHeight:1}}>{p.promo ? p.promo : `−${d}%`}</div>
             </div>
             <div style={{fontSize:11,color:'#ccc',textDecoration:'line-through',marginTop:2}}>{fmt(p.precio_publico)}</div>
             <div style={{fontSize:9,color:'#b06030',fontWeight:700,marginTop:2}}>+ IVA no incluido</div>
@@ -245,7 +246,7 @@ function CardList({p,onClick,onAdd,inCart}:{p:Producto;onClick:()=>void;onAdd:(p
           <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:20,fontWeight:900,color:'#f15922',lineHeight:1}}>{fmt(p.precio_outlet)}</div>
           <div style={{display:'flex',alignItems:'center',gap:5,justifyContent:'flex-end',marginTop:2}}>
             <span style={{fontSize:10,color:'#ccc',textDecoration:'line-through'}}>{fmt(p.precio_publico)}</span>
-            <span style={{background:'#e53935',color:'#fff',fontSize:10,fontWeight:800,padding:'1px 5px',borderRadius:3,fontFamily:'Barlow Condensed,sans-serif'}}>−{d}%</span>
+            <span style={{background:p.promo?'#16a34a':'#e53935',color:'#fff',fontSize:10,fontWeight:800,padding:'1px 5px',borderRadius:3,fontFamily:'Barlow Condensed,sans-serif'}}>{p.promo ? p.promo : `−${d}%`}</span>
           </div>
           <div style={{fontSize:9,color:'#b06030',fontWeight:700,marginTop:2}}>+ IVA no incluido</div>
         </div>
