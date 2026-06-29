@@ -105,6 +105,20 @@ export default function AdminPage(): JSX.Element {
     }
   }
 
+  // Toggle rápido de un campo booleano directo desde la tabla, sin abrir el modal
+  async function toggleField(p: Producto, field: 'activo' | 'es_urgente') {
+    const newValue = !p[field]
+    // Optimistic update
+    setProductos(prev => prev.map(x => x.id === p.id ? { ...x, [field]: newValue } : x))
+    const { error } = await supabase.from('productos_oportunidades')
+      .update({ [field]: newValue }).eq('id', p.id)
+    if (error) {
+      // revertir si falla
+      setProductos(prev => prev.map(x => x.id === p.id ? { ...x, [field]: p[field] } : x))
+      alert('Error al actualizar: ' + error.message)
+    }
+  }
+
   async function addCat() {
     const c = newCat.trim()
     if (!c || cats.includes(c)) return
@@ -212,6 +226,7 @@ export default function AdminPage(): JSX.Element {
                 <th style={s.th}>Stock</th>
                 <th style={s.th}>Outlet</th>
                 <th style={s.th}>Imagen</th>
+                <th style={s.th}>Urgente</th>
                 <th style={s.th}>Visible</th>
                 <th style={s.th}></th>
               </tr>
@@ -233,9 +248,20 @@ export default function AdminPage(): JSX.Element {
                     })()}
                   </td>
                   <td style={s.td}>
-                    <span style={{...s.pill,background:p.activo?'#e8f5e9':'#fce4ec',color:p.activo?'#2e7d32':'#c62828'}}>
+                    <button
+                      onClick={()=>toggleField(p,'es_urgente')}
+                      style={{...s.pill,cursor:'pointer',border:'none',background:p.es_urgente?'#fce4ec':'#f0f0ee',color:p.es_urgente?'#c62828':'#aaa',fontWeight:700}}
+                      title="Click para activar/desactivar urgente">
+                      {p.es_urgente?'⚡ Urgente':'— No'}
+                    </button>
+                  </td>
+                  <td style={s.td}>
+                    <button
+                      onClick={()=>toggleField(p,'activo')}
+                      style={{...s.pill,cursor:'pointer',border:'none',background:p.activo?'#e8f5e9':'#fce4ec',color:p.activo?'#2e7d32':'#c62828',fontWeight:700}}
+                      title="Click para mostrar/ocultar en la landing">
                       {p.activo?'Visible':'Oculto'}
-                    </span>
+                    </button>
                   </td>
                   <td style={s.td}>
                     <button style={s.editBtn} onClick={()=>{setEditing({...p});setSaveMsg('')}}>Editar</button>
