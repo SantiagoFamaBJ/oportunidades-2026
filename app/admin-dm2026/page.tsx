@@ -9,7 +9,7 @@ const STORAGE_BASE = 'https://larqxmgyutqiktsforgz.supabase.co/storage/v1/object
 function getStorageUrl(id: string): string {
   return `${STORAGE_BASE}/${id}.jpg?v=${new Date().toISOString().slice(0,10)}`
 }
-function fmt(n: number) { return '$ ' + Math.round(n).toLocaleString('es-AR') }
+function fmt(n: number) { return '$ ' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtDate(iso: string) { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
 
 export default function AdminPage(): JSX.Element {

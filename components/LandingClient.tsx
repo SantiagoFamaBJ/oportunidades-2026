@@ -3,7 +3,7 @@ import { useState, useMemo } from 'react'
 import { Producto } from '@/lib/supabase'
 import { LOGO_B64 } from '@/lib/logo'
 
-const fmt = (n: number) => '$\u00a0' + Math.round(n).toLocaleString('es-AR')
+const fmt = (n: number) => '$\u00a0' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtDate = (iso: string) => { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
 const pct = (pub: number, out: number) => Math.round((1 - out / pub) * 100)
 const WA_NUMBER = '5491164294000'
@@ -56,11 +56,11 @@ function Cart({ items, onClose, onRemove, onQty }: {
   function sendWA() {
     if (items.length === 0) return
     const lines = items.map(i => {
-      const subtotal = Math.round(i.producto.precio_outlet * i.qty)
-      return `• ${i.producto.nombre} - Lote: ${i.producto.lote} - Cant: ${i.qty} - $\u00a0${subtotal.toLocaleString('es-AR')}`
+      const subtotal = i.producto.precio_outlet * i.qty
+      return `• ${i.producto.nombre} - Lote: ${i.producto.lote} - Cant: ${i.qty} - ${fmt(subtotal)}`
     }).join('\n')
-    const total = items.reduce((sum, i) => sum + Math.round(i.producto.precio_outlet * i.qty), 0)
-    const msg = `¡Hola! Me gustaría consultar por las siguientes oportunidades:\n\n${lines}\n\nTotal aprox: $\u00a0${total.toLocaleString('es-AR')} (+ IVA)\n\nAguardo respuesta. Saludos.`
+    const total = items.reduce((sum, i) => sum + i.producto.precio_outlet * i.qty, 0)
+    const msg = `¡Hola! Me gustaría consultar por las siguientes oportunidades:\n\n${lines}\n\nTotal aprox: ${fmt(total)} (+ IVA)\n\nAguardo respuesta. Saludos.`
     window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`, '_blank')
   }
 
@@ -110,7 +110,7 @@ function Cart({ items, onClose, onRemove, onQty }: {
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
               <span style={{fontSize:13,color:'#888',fontWeight:600}}>Total aprox.</span>
               <span style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:22,fontWeight:900,color:'#f15922'}}>
-                {fmt(items.reduce((sum,i)=>sum+Math.round(i.producto.precio_outlet*i.qty),0))}
+                {fmt(items.reduce((sum,i)=>sum+i.producto.precio_outlet*i.qty,0))}
               </span>
             </div>
             <div style={{fontSize:10,color:'#b06030',fontWeight:700,textAlign:'right',marginBottom:10}}>+ IVA no incluido</div>
