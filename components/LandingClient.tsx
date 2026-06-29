@@ -60,7 +60,7 @@ function Cart({ items, onClose, onRemove, onQty }: {
       return `• ${i.producto.nombre} - Lote: ${i.producto.lote} - Cant: ${i.qty} - $\u00a0${subtotal.toLocaleString('es-AR')}`
     }).join('\n')
     const total = items.reduce((sum, i) => sum + Math.round(i.producto.precio_outlet * i.qty), 0)
-    const msg = `¡Hola! Me gustaría consultar por las siguientes oportunidades:\n\n${lines}\n\nTotal aprox: $\u00a0${total.toLocaleString('es-AR')}\n\nAguardo respuesta. Saludos.`
+    const msg = `¡Hola! Me gustaría consultar por las siguientes oportunidades:\n\n${lines}\n\nTotal aprox: $\u00a0${total.toLocaleString('es-AR')} (+ IVA)\n\nAguardo respuesta. Saludos.`
     window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`, '_blank')
   }
 
@@ -107,12 +107,13 @@ function Cart({ items, onClose, onRemove, onQty }: {
         {/* Footer */}
         {items.length > 0 && (
           <div style={{padding:'14px 16px',borderTop:'1px solid #e4e4e2',flexShrink:0}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
               <span style={{fontSize:13,color:'#888',fontWeight:600}}>Total aprox.</span>
               <span style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:22,fontWeight:900,color:'#f15922'}}>
                 {fmt(items.reduce((sum,i)=>sum+Math.round(i.producto.precio_outlet*i.qty),0))}
               </span>
             </div>
+            <div style={{fontSize:10,color:'#b06030',fontWeight:700,textAlign:'right',marginBottom:10}}>+ IVA no incluido</div>
             <button onClick={sendWA} style={{
               width:'100%',padding:'13px',background:'#25D366',color:'#fff',
               border:'none',borderRadius:10,fontSize:15,fontWeight:800,
@@ -147,12 +148,13 @@ function Modal({p, onClose, onAdd}:{p:Producto;onClose:()=>void;onAdd:(p:Product
           <div style={{fontSize:16,fontWeight:700,lineHeight:1.4,marginBottom:6,color:'#1a1a1a'}}>{p.nombre}</div>
           <div style={{fontSize:12,color:'#aaa',marginBottom:18}}>{p.categoria}</div>
           <div style={{background:'linear-gradient(135deg,#fff4f0,#fff8f5)',border:'2px solid #ffd0b8',borderLeft:'5px solid #f15922',borderRadius:12,padding:'16px 18px',marginBottom:16}}>
-            <div style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:1.2,color:'#f15922',marginBottom:4}}>Precio Outlet (c/IVA)</div>
+            <div style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:1.2,color:'#f15922',marginBottom:4}}>Precio Outlet</div>
             <div style={{display:'flex',alignItems:'baseline',gap:10,marginBottom:6}}>
               <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:44,fontWeight:900,color:'#f15922',lineHeight:1,letterSpacing:-1}}>{fmt(p.precio_outlet)}</div>
               <div style={{background:'#e53935',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontWeight:900,fontSize:16,padding:'3px 8px',borderRadius:5}}>−{d}%</div>
             </div>
-            <div style={{fontSize:13,color:'#aaa'}}>Precio público: <s>{fmt(p.precio_publico)}</s></div>
+            <div style={{fontSize:13,color:'#aaa',marginBottom:6}}>Precio distribuidor: <s>{fmt(p.precio_publico)}</s></div>
+            <div style={{fontSize:11,color:'#b06030',fontWeight:700,background:'#fff0e6',padding:'4px 8px',borderRadius:5,display:'inline-block'}}>+ IVA no incluido</div>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:16}}>
             {[{l:'Vencimiento',v:fmtDate(p.fecha_venc),r:p.es_urgente},{l:'Stock',v:`${p.stock} u.`,r:false},{l:'Lote',v:p.lote,r:false}].map(({l,v,r})=>(
@@ -201,6 +203,7 @@ function CardGrid({p,onClick,onAdd,inCart}:{p:Producto;onClick:()=>void;onAdd:(p
               <div style={{background:d>=60?'#e53935':d>=40?'#f15922':'#555',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontSize:14,fontWeight:900,padding:'2px 6px',borderRadius:4,lineHeight:1}}>−{d}%</div>
             </div>
             <div style={{fontSize:11,color:'#ccc',textDecoration:'line-through',marginTop:2}}>{fmt(p.precio_publico)}</div>
+            <div style={{fontSize:9,color:'#b06030',fontWeight:700,marginTop:2}}>+ IVA no incluido</div>
           </div>
           <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:4}}>
             <span style={{display:'inline-flex',alignItems:'center',gap:3,fontSize:10,fontWeight:600,color:p.es_urgente?'#e53935':'#888',background:p.es_urgente?'#fff5f5':'#f5f5f3',padding:'3px 7px',borderRadius:4,border:`1px solid ${p.es_urgente?'#ffd0ce':'#e4e4e2'}`}}>🗓 {fmtDate(p.fecha_venc)}</span>
@@ -244,6 +247,7 @@ function CardList({p,onClick,onAdd,inCart}:{p:Producto;onClick:()=>void;onAdd:(p
             <span style={{fontSize:10,color:'#ccc',textDecoration:'line-through'}}>{fmt(p.precio_publico)}</span>
             <span style={{background:'#e53935',color:'#fff',fontSize:10,fontWeight:800,padding:'1px 5px',borderRadius:3,fontFamily:'Barlow Condensed,sans-serif'}}>−{d}%</span>
           </div>
+          <div style={{fontSize:9,color:'#b06030',fontWeight:700,marginTop:2}}>+ IVA no incluido</div>
         </div>
         <button onClick={e=>{e.stopPropagation();onAdd(p)}} style={{
           padding:'6px 10px',
@@ -374,7 +378,7 @@ export default function LandingClient({productos}:{productos:Producto[]}) {
       <strong style={{color:'#fff'}}>Dental Medrano</strong>{' · '}
       <a href="https://dentalmedrano.com" target="_blank" rel="noreferrer" style={{color:'#f15922',textDecoration:'none'}}>dentalmedrano.com</a>
       <div style={{marginTop:8,fontSize:11,color:'#444',maxWidth:540,marginLeft:'auto',marginRight:'auto'}}>
-        Pedido aparte, especificar oportunidades. El mínimo de unidades correspondiente a cada artículo es el que está en la lista 1.
+        Los precios no incluyen IVA. Pedido aparte, especificar oportunidades. El mínimo de unidades correspondiente a cada artículo es el que está en la lista 1.
       </div>
     </footer>
 

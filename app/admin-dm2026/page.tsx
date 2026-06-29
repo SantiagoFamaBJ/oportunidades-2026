@@ -88,6 +88,7 @@ export default function AdminPage(): JSX.Element {
       imagen_url: editing.imagen_url,
       activo: editing.activo,
       precio_outlet: editing.precio_outlet,
+      precio_publico: editing.precio_publico,
       lote: editing.lote,
       categoria: editing.categoria,
       nombre: editing.nombre,
@@ -225,6 +226,7 @@ export default function AdminPage(): JSX.Element {
                 <th style={s.th}>Vence</th>
                 <th style={s.th}>Stock</th>
                 <th style={s.th}>Outlet</th>
+                <th style={s.th}>Distribuidor</th>
                 <th style={s.th}>Imagen</th>
                 <th style={s.th}>Urgente</th>
                 <th style={s.th}>Visible</th>
@@ -240,6 +242,7 @@ export default function AdminPage(): JSX.Element {
                   <td style={{...s.td,...(p.es_urgente?s.urgText:{})}}>{fmtDate(p.fecha_venc)}</td>
                   <td style={s.td}>{p.stock}</td>
                   <td style={s.td}>{fmt(p.precio_outlet)}</td>
+                  <td style={s.td}><span style={{color:'#bbb',textDecoration:'line-through',fontSize:12}}>{fmt(p.precio_publico)}</span></td>
                   <td style={s.td}>
                     {(()=>{
                       const url = p.imagen_url || getStorageUrl(p.id)
@@ -298,6 +301,12 @@ export default function AdminPage(): JSX.Element {
                 <input style={s.input} type="number" value={editing.precio_outlet}
                   onChange={e=>setEditing({...editing,precio_outlet:parseFloat(e.target.value)||0})}/>
               </div>
+            </div>
+
+            <div style={s.formGroup}>
+              <label style={s.label}>Precio distribuidor (tachado en la web)</label>
+              <input style={s.input} type="number" value={editing.precio_publico}
+                onChange={e=>setEditing({...editing,precio_publico:parseFloat(e.target.value)||0})}/>
             </div>
 
             <div style={s.formGroup}>
