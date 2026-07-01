@@ -24,6 +24,9 @@ export default function AdminPage(): JSX.Element {
   const [filter, setFilter] = useState<'all'|'urgente'|'ocultos'|'sin_imagen'>('all')
   const [catFilter, setCatFilter] = useState('all')
   const [uploading, setUploading] = useState(false)
+  const [tab, setTab] = useState<'productos'|'pedidos'>('productos')
+  const [pedidos, setPedidos] = useState<any[]>([])
+  const [loadingPedidos, setLoadingPedidos] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Categorías
@@ -59,6 +62,18 @@ export default function AdminPage(): JSX.Element {
   }
 
   useEffect(() => { if (auth) loadProducts() }, [auth])
+
+  async function loadPedidos() {
+    setLoadingPedidos(true)
+    const { data } = await supabase
+      .from('pedidos_oportunidades')
+      .select('*')
+      .order('created_at', { ascending: false })
+    setPedidos(data || [])
+    setLoadingPedidos(false)
+  }
+
+  useEffect(() => { if (auth && tab === 'pedidos') loadPedidos() }, [auth, tab])
 
   async function uploadImage(file: File): Promise<string | null> {
     const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
@@ -172,6 +187,8 @@ export default function AdminPage(): JSX.Element {
           {sinImagen > 0 && <span style={s.headerWarn}>⚠️ {sinImagen} sin imagen</span>}
         </div>
         <div style={s.headerRight}>
+          <button style={{...s.fBtn,...(tab==='productos'?s.fBtnActive:{})}} onClick={()=>setTab('productos')}>📦 Productos</button>
+          <button style={{...s.fBtn,...(tab==='pedidos'?s.fBtnActive:{})}} onClick={()=>setTab('pedidos')}>📋 Pedidos</button>
           <button style={{...s.fBtn,...(showCats?s.fBtnActive:{})}} onClick={()=>setShowCats(v=>!v)}>🏷 Categorías</button>
           <a href="/" target="_blank" style={s.viewLink}>Ver landing →</a>
           <button style={s.logoutBtn} onClick={()=>{sessionStorage.removeItem('dm_admin_auth');setAuth(false)}}>Salir</button>
@@ -215,7 +232,8 @@ export default function AdminPage(): JSX.Element {
         <span style={s.counter}>{filtered.length} mostrando</span>
       </div>
 
-      {/* Table */}
+      {/* Tab: Productos */}
+      {tab === 'productos' && (
       <div style={s.tableWrap}>
         {loading ? <div style={s.loading}>Cargando...</div> : (
           <table style={s.table}>
@@ -276,6 +294,51 @@ export default function AdminPage(): JSX.Element {
           </table>
         )}
       </div>
+      )} {/* end tab productos */}
+
+      {/* Tab: Pedidos */}
+      {tab === 'pedidos' && (
+        <div style={s.tableWrap}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+            <div style={{fontSize:14,fontWeight:700,color:'#1a1a1a'}}>Consultas recibidas por WhatsApp</div>
+            <button onClick={loadPedidos} style={{padding:'6px 14px',background:'#f15922',color:'#fff',border:'none',borderRadius:6,fontSize:12,fontWeight:600,cursor:'pointer'}}>
+              🔄 Actualizar
+            </button>
+          </div>
+          {loadingPedidos ? <div style={s.loading}>Cargando...</div> : pedidos.length === 0 ? (
+            <div style={{textAlign:'center',padding:60,color:'#bbb',fontSize:14}}>No hay pedidos registrados todavía</div>
+          ) : (
+            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+              {pedidos.map((p:any) => {
+                const fecha = new Date(p.created_at)
+                const fechaStr = fecha.toLocaleDateString('es-AR', {day:'2-digit',month:'2-digit',year:'numeric'})
+                const horaStr = fecha.toLocaleTimeString('es-AR', {hour:'2-digit',minute:'2-digit'})
+                return (
+                  <div key={p.id} style={{background:'#fff',borderRadius:10,border:'1.5px solid #e4e4e2',padding:'14px 18px',boxShadow:'0 2px 6px rgba(0,0,0,0.04)'}}>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+                      <div style={{display:'flex',alignItems:'center',gap:10}}>
+                        <span style={{background:'#f15922',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontWeight:800,fontSize:12,padding:'2px 10px',borderRadius:4}}>{p.vendedor}</span>
+                        <span style={{fontSize:12,color:'#888'}}>{fechaStr} · {horaStr}</span>
+                      </div>
+                      <span style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:18,fontWeight:900,color:'#f15922'}}>{fmt(p.total)}</span>
+                    </div>
+                    <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                      {(p.items as any[]).map((item:any, idx:number) => (
+                        <div key={idx} style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',fontSize:12,color:'#555',padding:'4px 0',borderBottom:'1px solid #f5f5f5'}}>
+                          <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginRight:8}}>{item.nombre}</span>
+                          <span style={{color:'#888',flexShrink:0,marginRight:8}}>Lote: {item.lote}</span>
+                          <span style={{flexShrink:0,fontWeight:700,marginRight:8}}>x{item.qty}</span>
+                          <span style={{flexShrink:0,color:'#f15922',fontWeight:600}}>{fmt(item.subtotal)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )} {/* end tab pedidos */}
 
       {/* Edit Modal */}
       {editing && (

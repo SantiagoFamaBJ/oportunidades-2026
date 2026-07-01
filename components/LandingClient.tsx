@@ -6,7 +6,41 @@ import { LOGO_B64 } from '@/lib/logo'
 const fmt = (n: number) => '$\u00a0' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtDate = (iso: string) => { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
 const pct = (pub: number, out: number) => Math.round((1 - out / pub) * 100)
-const WA_NUMBER = '5491164294000'
+const VENDEDORES = [
+  { nombre: 'Gustavo Sopa',      wa: '5491131007959' },
+  { nombre: 'Norberto Bronn',    wa: '5491133250213' },
+  { nombre: 'Juan Pablo Bosio',  wa: '5493515599178' },
+  { nombre: 'Emanuel Monzalvo', wa: '5493436228386' },
+  { nombre: 'Hugo Vélez',        wa: '5493516974211' },
+]
+
+const SUPABASE_URL = 'https://larqxmgyutqiktsforgz.supabase.co'
+const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+async function logPedido(vendedor: string, items: CartItem[], total: number) {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/pedidos_oportunidades`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON,
+        'Authorization': `Bearer ${SUPABASE_ANON}`,
+      },
+      body: JSON.stringify({
+        vendedor,
+        items: items.map(i => ({
+          id: i.producto.id,
+          nombre: i.producto.nombre,
+          lote: i.producto.lote,
+          qty: i.qty,
+          precio_outlet: i.producto.precio_outlet,
+          subtotal: i.producto.precio_outlet * i.qty,
+        })),
+        total,
+      })
+    })
+  } catch (_) {}
+}
 
 const STORAGE_BASE = 'https://larqxmgyutqiktsforgz.supabase.co/storage/v1/object/public/product-images'
 const BUST = new Date().toISOString().slice(0, 10)
@@ -53,16 +87,108 @@ function Cart({ items, onClose, onRemove, onQty }: {
   onRemove: (id: string) => void
   onQty: (id: string, qty: number) => void
 }) {
-  function sendWA() {
-    if (items.length === 0) return
+  const [vendedor, setVendedor] = useState('')
+  const [sending, setSending] = useState(false)
+
+  async function sendWA() {
+    if (items.length === 0 || !vendedor) return
+    const v = VENDEDORES.find(v => v.nombre === vendedor)!
+    const total = items.reduce((sum, i) => sum + i.producto.precio_outlet * i.qty, 0)
     const lines = items.map(i => {
       const subtotal = i.producto.precio_outlet * i.qty
       return `• ${i.producto.nombre} - Lote: ${i.producto.lote} - Cant: ${i.qty} - ${fmt(subtotal)}`
     }).join('\n')
-    const total = items.reduce((sum, i) => sum + i.producto.precio_outlet * i.qty, 0)
     const msg = `¡Hola! Me gustaría consultar por las siguientes oportunidades:\n\n${lines}\n\nTotal aprox: ${fmt(total)} (+ IVA)\n\nAguardo respuesta. Saludos.`
-    window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`, '_blank')
+    setSending(true)
+    await logPedido(vendedor, items, total)
+    setSending(false)
+    window.open(`https://wa.me/${v.wa}?text=${encodeURIComponent(msg)}`, '_blank')
   }
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',zIndex:400,display:'flex',alignItems:'flex-end',justifyContent:'flex-end',padding:20,backdropFilter:'blur(4px)'}}
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:420,maxHeight:'80vh',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.2)',animation:'pop .2s cubic-bezier(.34,1.56,.64,1)'}}>
+        {/* Header */}
+        <div style={{padding:'16px 20px',borderBottom:'1px solid #e4e4e2',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+          <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:18,fontWeight:800,color:'#1a1a1a'}}>
+            🛒 Mi pedido <span style={{color:'#aaa',fontWeight:500,fontSize:14}}>({items.length} producto{items.length!==1?'s':''})</span>
+          </div>
+          <button onClick={onClose} style={{background:'rgba(0,0,0,0.07)',border:'none',width:28,height:28,borderRadius:'50%',fontSize:14,cursor:'pointer',color:'#888',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+        </div>
+
+        {/* Items */}
+        <div style={{overflowY:'auto',flex:1,padding:'8px 0'}}>
+          {items.length === 0 ? (
+            <div style={{textAlign:'center',padding:'40px 20px',color:'#bbb',fontSize:14}}>
+              No hay productos en el pedido
+            </div>
+          ) : items.map(({producto:p, qty}) => (
+            <div key={p.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 16px',borderBottom:'1px solid #f5f5f5'}}>
+              <div style={{width:48,height:48,flexShrink:0,background:'#f5f5f3',borderRadius:8,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <Img p={p} h={48}/>
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,fontWeight:600,lineHeight:1.3,color:'#1a1a1a',overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{p.nombre}</div>
+                <div style={{fontSize:11,color:'#f15922',fontWeight:700,marginTop:2}}>{fmt(p.precio_outlet)}</div>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+                <button onClick={()=>onQty(p.id, qty-1)}
+                  style={{width:26,height:26,borderRadius:6,border:'1.5px solid #e4e4e2',background:'#f7f7f5',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',color:'#555'}}>−</button>
+                <span style={{fontSize:14,fontWeight:700,minWidth:20,textAlign:'center'}}>{qty}</span>
+                <button onClick={()=>onQty(p.id, qty+1)}
+                  style={{width:26,height:26,borderRadius:6,border:'1.5px solid #e4e4e2',background:'#f7f7f5',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',color:'#555'}}>+</button>
+                <button onClick={()=>onRemove(p.id)}
+                  style={{width:26,height:26,borderRadius:6,border:'1px solid #ffd0ce',background:'#fff5f5',cursor:'pointer',fontSize:13,display:'flex',alignItems:'center',justifyContent:'center',color:'#e53935'}}>✕</button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        {items.length > 0 && (
+          <div style={{padding:'14px 16px',borderTop:'1px solid #e4e4e2',flexShrink:0}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+              <span style={{fontSize:13,color:'#888',fontWeight:600}}>Total aprox.</span>
+              <span style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:22,fontWeight:900,color:'#f15922'}}>
+                {fmt(items.reduce((sum,i)=>sum+i.producto.precio_outlet*i.qty,0))}
+              </span>
+            </div>
+            <div style={{fontSize:10,color:'#b06030',fontWeight:700,textAlign:'right',marginBottom:12}}>+ IVA no incluido</div>
+
+            {/* Selector vendedor */}
+            <div style={{marginBottom:10}}>
+              <label style={{fontSize:11,fontWeight:700,color:'#888',textTransform:'uppercase',letterSpacing:.8,display:'block',marginBottom:5}}>
+                ¿Quién es tu vendedor?
+              </label>
+              <select value={vendedor} onChange={e=>setVendedor(e.target.value)}
+                style={{width:'100%',padding:'9px 12px',border:`1.5px solid ${vendedor?'#e4e4e2':'#f15922'}`,borderRadius:8,fontSize:13,background:'#f7f7f5',color:vendedor?'#1a1a1a':'#aaa',outline:'none',cursor:'pointer'}}>
+                <option value="">Seleccioná tu vendedor…</option>
+                {VENDEDORES.map(v=><option key={v.wa} value={v.nombre}>{v.nombre}</option>)}
+              </select>
+              {!vendedor && <div style={{fontSize:11,color:'#f15922',marginTop:4,fontWeight:600}}>* Necesario para enviar la consulta</div>}
+            </div>
+
+            <button onClick={sendWA} disabled={!vendedor||sending} style={{
+              width:'100%',padding:'13px',
+              background:vendedor?'#25D366':'#ccc',
+              color:'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:800,
+              cursor:vendedor?'pointer':'not-allowed',
+              display:'flex',alignItems:'center',justifyContent:'center',gap:10,
+              fontFamily:'Barlow,sans-serif',letterSpacing:.3,
+              opacity:sending?0.7:1,transition:'background .2s'
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+              </svg>
+              {sending ? 'Enviando…' : 'Enviar consulta por WhatsApp'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',zIndex:400,display:'flex',alignItems:'flex-end',justifyContent:'flex-end',padding:20,backdropFilter:'blur(4px)'}}
