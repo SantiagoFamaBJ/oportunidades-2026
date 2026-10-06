@@ -65,7 +65,7 @@ git push -u origin main
 | URL | Descripción |
 |-----|-------------|
 | `https://tu-url.vercel.app/` | Landing pública |
-| `https://tu-url.vercel.app/admin-dm2026` | Panel admin (solo vos) |
+| `https://tu-url.vercel.app/ADMIN` | Panel admin (solo vos) |
 
 El admin **no aparece en ningún link** de la landing. Solo accediendo directo a esa URL.
 

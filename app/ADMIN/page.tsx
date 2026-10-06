@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase, Producto } from '@/lib/supabase'
 
-const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'dm2026admin'
 const BUCKET = 'product-images'
 const STORAGE_BASE = 'https://larqxmgyutqiktsforgz.supabase.co/storage/v1/object/public/product-images'
 
@@ -46,7 +45,8 @@ export default function AdminPage(): JSX.Element {
   }, [])
 
   async function login() {
-    if (pass === ADMIN_PASSWORD) {
+    const res = await fetch('/api/admin-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pass }) })
+    if (res.ok) {
       sessionStorage.setItem('dm_admin_auth', '1')
       setAuth(true)
     } else {
