@@ -21,4 +21,6 @@ export type Producto = {
   categoria: string
   activo: boolean
   promo: string | null
+  consultar_precio: boolean
+  descuento_pct: number | null
 }

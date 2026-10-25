@@ -2,10 +2,10 @@
 import { useState, useMemo } from 'react'
 import { Producto } from '@/lib/supabase'
 import { LOGO_B64 } from '@/lib/logo'
+import { tieneDescuento, pctDescuento } from '@/lib/precio'
 
 const fmt = (n: number) => '$\u00a0' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtDate = (iso: string) => { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
-const pct = (pub: number, out: number) => Math.round((1 - out / pub) * 100)
 const VENDEDORES = [
   { nombre: 'Gustavo Sopa',      wa: '5491131007959' },
   { nombre: 'Norberto Bronn',    wa: '5491133250213' },
@@ -33,8 +33,8 @@ async function logPedido(vendedor: string, items: CartItem[], total: number) {
           nombre: i.producto.nombre,
           lote: i.producto.lote,
           qty: i.qty,
-          precio_outlet: i.producto.precio_outlet,
-          subtotal: i.producto.precio_outlet * i.qty,
+          precio_outlet: i.producto.consultar_precio ? null : i.producto.precio_outlet,
+          subtotal: i.producto.consultar_precio ? 0 : i.producto.precio_outlet * i.qty,
         })),
         total,
       })
@@ -42,40 +42,29 @@ async function logPedido(vendedor: string, items: CartItem[], total: number) {
   } catch (_) {}
 }
 
-const STORAGE_BASE = 'https://larqxmgyutqiktsforgz.supabase.co/storage/v1/object/public/product-images'
-const BUST = new Date().toISOString().slice(0, 10)
+const subtotal = (i: CartItem) => i.producto.consultar_precio ? 0 : i.producto.precio_outlet * i.qty
 
-function getUrls(p: Producto): string[] {
-  const id = p.id; const baseId = p.codigo
-  return [
-    `${STORAGE_BASE}/${id}.jpg?v=${BUST}`,
-    `${STORAGE_BASE}/${id}.png?v=${BUST}`,
-    `${STORAGE_BASE}/${id}.webp?v=${BUST}`,
-    `${STORAGE_BASE}/${baseId}.jpg?v=${BUST}`,
-    `${STORAGE_BASE}/${baseId}.png?v=${BUST}`,
-  ]
-}
-
+/* Foto desde la biblioteca por código (viene en p.imagen_url) */
 function Img({ p, h }: { p: Producto; h: number }) {
-  const [i, setI] = useState(0)
   const [fail, setFail] = useState(false)
-  const urls = useMemo(() => getUrls(p), [p.id])
-  if (fail) return (
+  if (!p.imagen_url || fail) return (
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,opacity:.15}}>
       <svg width={h*.36} height={h*.36} viewBox="0 0 40 40" fill="none" stroke="#999" strokeWidth="1.3">
         <rect x="4" y="4" width="32" height="32" rx="4"/><circle cx="15" cy="15" r="4"/><path d="m4 26 9-9 7 7 5-5 11 11"/>
       </svg>
     </div>
   )
-  return <img src={urls[i]} alt={p.nombre} style={{width:'100%',height:'100%',objectFit:'contain',padding:h>140?16:8}}
-    onError={()=>i+1<urls.length?setI(x=>x+1):setFail(true)}/>
+  return <img src={p.imagen_url} alt={p.nombre} style={{width:'100%',height:'100%',objectFit:'contain',padding:h>140?16:8}}
+    onError={()=>setFail(true)}/>
 }
 
+// "Consultar precio" siempre al final en los órdenes por precio/descuento
+const cp = (a:Producto,b:Producto) => Number(!!a.consultar_precio) - Number(!!b.consultar_precio)
 const SORTS = [
-  {label:'Mayor descuento', fn:(a:Producto,b:Producto)=>pct(b.precio_publico,b.precio_outlet)-pct(a.precio_publico,a.precio_outlet)},
+  {label:'Mayor descuento', fn:(a:Producto,b:Producto)=>cp(a,b)||pctDescuento(b)-pctDescuento(a)},
   {label:'Vence primero',   fn:(a:Producto,b:Producto)=>a.fecha_venc.localeCompare(b.fecha_venc)},
-  {label:'Menor precio',    fn:(a:Producto,b:Producto)=>a.precio_outlet-b.precio_outlet},
-  {label:'Mayor precio',    fn:(a:Producto,b:Producto)=>b.precio_outlet-a.precio_outlet},
+  {label:'Menor precio',    fn:(a:Producto,b:Producto)=>cp(a,b)||a.precio_outlet-b.precio_outlet},
+  {label:'Mayor precio',    fn:(a:Producto,b:Producto)=>cp(a,b)||b.precio_outlet-a.precio_outlet},
 ]
 
 type CartItem = { producto: Producto; qty: number }
@@ -93,12 +82,12 @@ function Cart({ items, onClose, onRemove, onQty }: {
   async function sendWA() {
     if (items.length === 0 || !vendedor) return
     const v = VENDEDORES.find(v => v.nombre === vendedor)!
-    const total = items.reduce((sum, i) => sum + i.producto.precio_outlet * i.qty, 0)
-    const lines = items.map(i => {
-      const subtotal = i.producto.precio_outlet * i.qty
-      return `• ${i.producto.nombre} - Lote: ${i.producto.lote} - Cant: ${i.qty} - ${fmt(subtotal)}`
-    }).join('\n')
-    const msg = `¡Hola! Me gustaría consultar por las siguientes oportunidades:\n\n${lines}\n\nTotal aprox: ${fmt(total)} (+ IVA)\n\nAguardo respuesta. Saludos.`
+    const total = items.reduce((sum, i) => sum + subtotal(i), 0)
+    const hayConsultar = items.some(i => i.producto.consultar_precio)
+    const lines = items.map(i =>
+      `• ${i.producto.nombre} - Lote: ${i.producto.lote} - Cant: ${i.qty} - ${i.producto.consultar_precio ? 'Consultar precio' : fmt(subtotal(i))}`
+    ).join('\n')
+    const msg = `¡Hola! Me gustaría consultar por las siguientes oportunidades:\n\n${lines}\n\nTotal aprox: ${fmt(total)} (+ IVA)${hayConsultar ? ' — sin incluir los de precio a consultar' : ''}\n\nAguardo respuesta. Saludos.`
     setSending(true)
     await logPedido(vendedor, items, total)
     setSending(false)
@@ -130,7 +119,7 @@ function Cart({ items, onClose, onRemove, onQty }: {
               </div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:12,fontWeight:600,lineHeight:1.3,color:'#1a1a1a',overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{p.nombre}</div>
-                <div style={{fontSize:11,color:'#f15922',fontWeight:700,marginTop:2}}>{fmt(p.precio_outlet)}</div>
+                <div style={{fontSize:11,color:'#f15922',fontWeight:700,marginTop:2}}>{p.consultar_precio ? 'Consultar precio' : fmt(p.precio_outlet)}</div>
               </div>
               <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
                 <button onClick={()=>onQty(p.id, qty-1)}
@@ -151,10 +140,12 @@ function Cart({ items, onClose, onRemove, onQty }: {
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
               <span style={{fontSize:13,color:'#888',fontWeight:600}}>Total aprox.</span>
               <span style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:22,fontWeight:900,color:'#f15922'}}>
-                {fmt(items.reduce((sum,i)=>sum+i.producto.precio_outlet*i.qty,0))}
+                {fmt(items.reduce((sum,i)=>sum+subtotal(i),0))}
               </span>
             </div>
-            <div style={{fontSize:10,color:'#b06030',fontWeight:700,textAlign:'right',marginBottom:12}}>+ IVA no incluido</div>
+            <div style={{fontSize:10,color:'#b06030',fontWeight:700,textAlign:'right',marginBottom:12}}>
+              + IVA no incluido{items.some(i=>i.producto.consultar_precio)?' · sin los de precio a consultar':''}
+            </div>
 
             {/* Selector vendedor */}
             <div style={{marginBottom:10}}>
@@ -193,7 +184,8 @@ function Cart({ items, onClose, onRemove, onQty }: {
 
 /* ── MODAL PRODUCTO ── */
 function Modal({p, onClose, onAdd}:{p:Producto;onClose:()=>void;onAdd:(p:Producto)=>void}) {
-  const d = pct(p.precio_publico, p.precio_outlet)
+  const d = pctDescuento(p)
+  const desc = tieneDescuento(p)
   return (
     <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:16,backdropFilter:'blur(5px)'}}>
       <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:500,maxHeight:'90vh',overflowY:'auto',position:'relative',boxShadow:'0 24px 80px rgba(0,0,0,0.25)',animation:'pop .22s cubic-bezier(.34,1.56,.64,1)'}}>
@@ -207,12 +199,16 @@ function Modal({p, onClose, onAdd}:{p:Producto;onClose:()=>void;onAdd:(p:Product
           <div style={{fontSize:16,fontWeight:700,lineHeight:1.4,marginBottom:6,color:'#1a1a1a'}}>{p.nombre}</div>
           <div style={{fontSize:12,color:'#aaa',marginBottom:18}}>{p.categoria}</div>
           <div style={{background:'linear-gradient(135deg,#fff4f0,#fff8f5)',border:'2px solid #ffd0b8',borderLeft:'5px solid #f15922',borderRadius:12,padding:'16px 18px',marginBottom:16}}>
-            <div style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:1.2,color:'#f15922',marginBottom:4}}>Precio Outlet</div>
+            {p.consultar_precio ? (
+              <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:34,fontWeight:900,color:'#f15922',lineHeight:1.1,marginBottom:8}}>Consultar precio</div>
+            ) : (<>
+            {desc && <div style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:1.2,color:'#f15922',marginBottom:4}}>Precio Outlet</div>}
             <div style={{display:'flex',alignItems:'baseline',gap:10,marginBottom:6}}>
               <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:44,fontWeight:900,color:'#f15922',lineHeight:1,letterSpacing:-1}}>{fmt(p.precio_outlet)}</div>
-              <div style={{background:p.promo?'#16a34a':'#e53935',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontWeight:900,fontSize:16,padding:'3px 8px',borderRadius:5}}>{p.promo ? p.promo : `−${d}%`}</div>
+              {(p.promo || desc) && <div style={{background:p.promo?'#16a34a':'#e53935',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontWeight:900,fontSize:16,padding:'3px 8px',borderRadius:5}}>{p.promo ? p.promo : `−${d}%`}</div>}
             </div>
-            <div style={{fontSize:13,color:'#aaa',marginBottom:6}}>Precio distribuidor: <s>{fmt(p.precio_publico)}</s></div>
+            {desc && <div style={{fontSize:13,color:'#aaa',marginBottom:6}}>Precio público: <s>{fmt(p.precio_publico)}</s></div>}
+            </>)}
             {p.promo && <div style={{fontSize:12,color:'#16a34a',fontWeight:700,marginBottom:6}}>🎁 Promo {p.promo}: comprás 1 y te llevás otra unidad sin cargo</div>}
             <div style={{fontSize:11,color:'#b06030',fontWeight:700,background:'#fff0e6',padding:'4px 8px',borderRadius:5,display:'inline-block'}}>+ IVA no incluido</div>
           </div>
@@ -240,7 +236,8 @@ function Modal({p, onClose, onAdd}:{p:Producto;onClose:()=>void;onAdd:(p:Product
 
 /* ── CARD GRID ── */
 function CardGrid({p,onClick,onAdd,inCart}:{p:Producto;onClick:()=>void;onAdd:(p:Producto)=>void;inCart:boolean}) {
-  const d = pct(p.precio_publico, p.precio_outlet)
+  const d = pctDescuento(p)
+  const desc = tieneDescuento(p)
   const [hov,setHov] = useState(false)
   const shadow = hov
     ? (p.es_urgente?'0 0 0 2px #e53935,0 0 24px 5px rgba(229,57,53,.22),0 8px 20px rgba(0,0,0,.10)':'0 0 0 2px #f15922,0 0 20px 4px rgba(241,89,34,.20),0 8px 20px rgba(0,0,0,.10)')
@@ -257,13 +254,17 @@ function CardGrid({p,onClick,onAdd,inCart}:{p:Producto;onClick:()=>void;onAdd:(p
           <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:10,fontWeight:700,color:'#ccc',letterSpacing:1.2,textTransform:'uppercase'}}>{p.codigo}</div>
           <div style={{fontSize:12,fontWeight:600,lineHeight:1.4,color:'#1a1a1a',display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',overflow:'hidden',minHeight:50}}>{p.nombre}</div>
           <div style={{marginTop:6,paddingTop:6,borderTop:'1px solid #f0f0ee'}}>
-            <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'#f15922',marginBottom:2}}>Precio Outlet</div>
+            {p.consultar_precio ? (
+              <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:20,fontWeight:900,color:'#f15922',lineHeight:1.1,padding:'6px 0'}}>Consultar precio</div>
+            ) : (<>
+            {desc && <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'#f15922',marginBottom:2}}>Precio Outlet</div>}
             <div style={{display:'flex',alignItems:'baseline',gap:6}}>
               <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:24,fontWeight:900,color:'#f15922',lineHeight:1,letterSpacing:-0.5}}>{fmt(p.precio_outlet)}</div>
-              <div style={{background:p.promo?'#16a34a':(d>=60?'#e53935':d>=40?'#f15922':'#555'),color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontSize:14,fontWeight:900,padding:'2px 6px',borderRadius:4,lineHeight:1}}>{p.promo ? p.promo : `−${d}%`}</div>
+              {(p.promo || desc) && <div style={{background:p.promo?'#16a34a':(d>=60?'#e53935':d>=40?'#f15922':'#555'),color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontSize:14,fontWeight:900,padding:'2px 6px',borderRadius:4,lineHeight:1}}>{p.promo ? p.promo : `−${d}%`}</div>}
             </div>
-            <div style={{fontSize:11,color:'#ccc',textDecoration:'line-through',marginTop:2}}>{fmt(p.precio_publico)}</div>
+            {desc && <div style={{fontSize:11,color:'#ccc',textDecoration:'line-through',marginTop:2}}>{fmt(p.precio_publico)}</div>}
             <div style={{fontSize:9,color:'#b06030',fontWeight:700,marginTop:2}}>+ IVA no incluido</div>
+            </>)}
           </div>
           <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:4}}>
             <span style={{display:'inline-flex',alignItems:'center',gap:3,fontSize:10,fontWeight:600,color:p.es_urgente?'#e53935':'#888',background:p.es_urgente?'#fff5f5':'#f5f5f3',padding:'3px 7px',borderRadius:4,border:`1px solid ${p.es_urgente?'#ffd0ce':'#e4e4e2'}`}}>🗓 {fmtDate(p.fecha_venc)}</span>
@@ -288,7 +289,8 @@ function CardGrid({p,onClick,onAdd,inCart}:{p:Producto;onClick:()=>void;onAdd:(p
 
 /* ── CARD LIST ── */
 function CardList({p,onClick,onAdd,inCart}:{p:Producto;onClick:()=>void;onAdd:(p:Producto)=>void;inCart:boolean}) {
-  const d = pct(p.precio_publico, p.precio_outlet)
+  const d = pctDescuento(p)
+  const desc = tieneDescuento(p)
   return (
     <div style={{background:'#fff',borderRadius:10,border:p.es_urgente?'1.5px solid #ffd0ce':'1.5px solid #e4e4e2',display:'grid',gridTemplateColumns:'64px 1fr auto',alignItems:'center',gap:12,padding:'10px 14px',boxShadow:p.es_urgente?'0 0 12px 2px rgba(229,57,53,.12)':'0 2px 6px rgba(0,0,0,.04)'}}>
       <div onClick={onClick} style={{width:64,height:64,flexShrink:0,background:'#f5f5f3',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',cursor:'pointer'}}>
@@ -301,13 +303,17 @@ function CardList({p,onClick,onAdd,inCart}:{p:Producto;onClick:()=>void;onAdd:(p
       </div>
       <div style={{textAlign:'right',flexShrink:0,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6}}>
         <div>
-          <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'#f15922',marginBottom:2}}>Outlet</div>
+          {p.consultar_precio ? (
+            <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:17,fontWeight:900,color:'#f15922',lineHeight:1.1}}>Consultar precio</div>
+          ) : (<>
+          {desc && <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'#f15922',marginBottom:2}}>Outlet</div>}
           <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:20,fontWeight:900,color:'#f15922',lineHeight:1}}>{fmt(p.precio_outlet)}</div>
-          <div style={{display:'flex',alignItems:'center',gap:5,justifyContent:'flex-end',marginTop:2}}>
-            <span style={{fontSize:10,color:'#ccc',textDecoration:'line-through'}}>{fmt(p.precio_publico)}</span>
+          {(p.promo || desc) && <div style={{display:'flex',alignItems:'center',gap:5,justifyContent:'flex-end',marginTop:2}}>
+            {desc && <span style={{fontSize:10,color:'#ccc',textDecoration:'line-through'}}>{fmt(p.precio_publico)}</span>}
             <span style={{background:p.promo?'#16a34a':'#e53935',color:'#fff',fontSize:10,fontWeight:800,padding:'1px 5px',borderRadius:3,fontFamily:'Barlow Condensed,sans-serif'}}>{p.promo ? p.promo : `−${d}%`}</span>
-          </div>
+          </div>}
           <div style={{fontSize:9,color:'#b06030',fontWeight:700,marginTop:2}}>+ IVA no incluido</div>
+          </>)}
         </div>
         <button onClick={e=>{e.stopPropagation();onAdd(p)}} style={{
           padding:'6px 10px',

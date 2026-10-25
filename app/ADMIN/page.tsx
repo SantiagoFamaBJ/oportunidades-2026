@@ -1,13 +1,9 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase, Producto } from '@/lib/supabase'
-
-const BUCKET = 'product-images'
-const STORAGE_BASE = 'https://larqxmgyutqiktsforgz.supabase.co/storage/v1/object/public/product-images'
-
-function getStorageUrl(id: string): string {
-  return `${STORAGE_BASE}/${id}.jpg?v=${new Date().toISOString().slice(0,10)}`
-}
+import { cargarFotos, subirFoto } from '@/lib/fotos'
+import ImportarLista from '@/components/admin/ImportarLista'
+import FotosPanel from '@/components/admin/FotosPanel'
 function fmt(n: number) { return '$ ' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtDate(iso: string) { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
 
@@ -23,7 +19,8 @@ export default function AdminPage(): JSX.Element {
   const [filter, setFilter] = useState<'all'|'urgente'|'ocultos'|'sin_imagen'>('all')
   const [catFilter, setCatFilter] = useState('all')
   const [uploading, setUploading] = useState(false)
-  const [tab, setTab] = useState<'productos'|'pedidos'>('productos')
+  const [tab, setTab] = useState<'productos'|'importar'|'fotos'|'pedidos'>('productos')
+  const [fotos, setFotos] = useState<Record<string,string>>({})
   const [pedidos, setPedidos] = useState<any[]>([])
   const [loadingPedidos, setLoadingPedidos] = useState(false)
 
@@ -74,7 +71,9 @@ export default function AdminPage(): JSX.Element {
     setLandingActiva(data?.landing_activa ?? true)
   }
 
-  useEffect(() => { if (auth) { loadProducts(); loadConfig() } }, [auth])
+  async function loadFotos() { setFotos(await cargarFotos()) }
+
+  useEffect(() => { if (auth) { loadProducts(); loadConfig(); loadFotos() } }, [auth])
 
   async function toggleLanding() {
     if (landingActiva === null) return
@@ -104,24 +103,18 @@ export default function AdminPage(): JSX.Element {
 
   useEffect(() => { if (auth && tab === 'pedidos') loadPedidos() }, [auth, tab])
 
-  async function uploadImage(file: File): Promise<string | null> {
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
-    const path = `${editing!.id}.${ext}`
-    setUploading(true)
-    setSaveMsg('Subiendo imagen...')
-    const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true, contentType: file.type })
-    if (error) { setSaveMsg('❌ Error: ' + error.message); setUploading(false); return null }
-    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
-    setUploading(false)
-    setSaveMsg('✅ Imagen subida')
-    return data.publicUrl + '?t=' + Date.now()
-  }
-
+  // La foto va a la biblioteca por código: sirve para todos los lotes de ese producto
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file || !editing) return
-    const url = await uploadImage(file)
-    if (url) setEditing({ ...editing, imagen_url: url })
+    setUploading(true)
+    setSaveMsg('Subiendo imagen...')
+    const r = await subirFoto(editing.codigo, file)
+    setUploading(false)
+    if (r.error) { setSaveMsg('❌ Error: ' + r.error); return }
+    setFotos(prev => ({ ...prev, [editing.codigo]: r.url! }))
+    setSaveMsg('✅ Foto guardada para ' + editing.codigo)
   }
 
   async function saveEdit() {
@@ -129,7 +122,7 @@ export default function AdminPage(): JSX.Element {
     setSaveMsg('Guardando...')
     const { error, data } = await supabase.from('productos_oportunidades').update({
       stock: editing.stock,
-      imagen_url: editing.imagen_url,
+      consultar_precio: editing.consultar_precio,
       activo: editing.activo,
       precio_outlet: editing.precio_outlet,
       precio_publico: editing.precio_publico,
@@ -181,7 +174,7 @@ export default function AdminPage(): JSX.Element {
   const filtered = productos.filter(p => {
     if (filter === 'urgente' && !p.es_urgente) return false
     if (filter === 'ocultos' && p.activo) return false
-    if (filter === 'sin_imagen' && p.imagen_url) return false
+    if (filter === 'sin_imagen' && fotos[p.codigo]) return false
     if (catFilter !== 'all' && p.categoria !== catFilter) return false
     if (search) {
       const q = search.toLowerCase()
@@ -190,7 +183,7 @@ export default function AdminPage(): JSX.Element {
     return true
   })
 
-  const sinImagen = productos.filter(p => !p.imagen_url).length
+  const sinImagen = new Set(productos.filter(p => p.activo && !fotos[p.codigo]).map(p => p.codigo)).size
 
   if (!auth) return (
     <div style={s.loginWrap}>
@@ -213,7 +206,7 @@ export default function AdminPage(): JSX.Element {
         <div style={s.headerLeft}>
           <span style={s.headerTitle}>Admin · Oportunidades 2026</span>
           <span style={s.headerCount}>{productos.length} productos</span>
-          {sinImagen > 0 && <span style={s.headerWarn}>⚠️ {sinImagen} sin imagen</span>}
+          {sinImagen > 0 && <span style={{...s.headerWarn,cursor:'pointer'}} onClick={()=>setTab('fotos')} title="Ver cuáles faltan">⚠️ Faltan {sinImagen} foto{sinImagen!==1?'s':''}</span>}
         </div>
         <div style={s.headerRight}>
           {/* Toggle landing */}
@@ -242,6 +235,8 @@ export default function AdminPage(): JSX.Element {
             </button>
           )}
           <button style={{...s.fBtn,...(tab==='productos'?s.fBtnActive:{})}} onClick={()=>setTab('productos')}>📦 Productos</button>
+          <button style={{...s.fBtn,...(tab==='importar'?s.fBtnActive:{})}} onClick={()=>setTab('importar')}>⬆️ Actualizar lista</button>
+          <button style={{...s.fBtn,...(tab==='fotos'?s.fBtnActive:{})}} onClick={()=>setTab('fotos')}>📷 Fotos{sinImagen>0?` (${sinImagen})`:''}</button>
           <button style={{...s.fBtn,...(tab==='pedidos'?s.fBtnActive:{})}} onClick={()=>setTab('pedidos')}>📋 Pedidos</button>
           <button style={{...s.fBtn,...(showCats?s.fBtnActive:{})}} onClick={()=>setShowCats(v=>!v)}>🏷 Categorías</button>
           <a href="/" target="_blank" style={s.viewLink}>Ver landing →</a>
@@ -275,7 +270,7 @@ export default function AdminPage(): JSX.Element {
           <input style={s.search} type="search" placeholder="Buscar…" value={search} onChange={e=>setSearch(e.target.value)}/>
           {(['all','urgente','sin_imagen','ocultos'] as const).map(f=>(
             <button key={f} style={{...s.fBtn,...(filter===f?s.fBtnActive:{})}} onClick={()=>setFilter(f)}>
-              {f==='all'?'Todos':f==='urgente'?'🔴 Urgentes':f==='sin_imagen'?'📷 Sin imagen':'🚫 Ocultos'}
+              {f==='all'?'Todos':f==='urgente'?'🔴 Urgentes':f==='sin_imagen'?'📷 Sin foto':'🚫 Ocultos'}
             </button>
           ))}
           <div style={{width:1,height:24,background:'#e4e4e2',flexShrink:0}}/>
@@ -301,7 +296,7 @@ export default function AdminPage(): JSX.Element {
                 <th style={s.th}>Vence</th>
                 <th style={s.th}>Stock</th>
                 <th style={s.th}>Outlet</th>
-                <th style={s.th}>Distribuidor</th>
+                <th style={s.th}>Público</th>
                 <th style={s.th}>Imagen</th>
                 <th style={s.th}>Urgente</th>
                 <th style={s.th}>Visible</th>
@@ -316,14 +311,12 @@ export default function AdminPage(): JSX.Element {
                   <td style={s.td}><span style={{fontSize:11,color:'#888'}}>{p.categoria||'—'}</span></td>
                   <td style={{...s.td,...(p.es_urgente?s.urgText:{})}}>{fmtDate(p.fecha_venc)}</td>
                   <td style={s.td}>{p.stock}</td>
-                  <td style={s.td}>{fmt(p.precio_outlet)}</td>
+                  <td style={s.td}>{p.consultar_precio ? <span style={{fontSize:11,fontWeight:700,color:'#b06030'}}>Consultar</span> : fmt(p.precio_outlet)}</td>
                   <td style={s.td}><span style={{color:'#bbb',textDecoration:'line-through',fontSize:12}}>{fmt(p.precio_publico)}</span></td>
                   <td style={s.td}>
-                    {(()=>{
-                      const url = p.imagen_url || getStorageUrl(p.id)
-                      return <img src={url} alt="" style={{width:40,height:40,objectFit:'contain',borderRadius:4,border:'1px solid #eee',background:'#f5f5f3'}}
-                        onError={e=>{e.currentTarget.style.opacity='0.15'}}/>
-                    })()}
+                    {fotos[p.codigo]
+                      ? <img src={fotos[p.codigo]} alt="" style={{width:40,height:40,objectFit:'contain',borderRadius:4,border:'1px solid #eee',background:'#f5f5f3'}}/>
+                      : <span style={{fontSize:10,fontWeight:700,color:'#e65100',background:'#fff3e0',padding:'3px 6px',borderRadius:4}}>Sin foto</span>}
                   </td>
                   <td style={s.td}>
                     <button
@@ -351,6 +344,9 @@ export default function AdminPage(): JSX.Element {
         )}
       </div>
       )} {/* end tab productos */}
+
+      {tab === 'importar' && <ImportarLista productos={productos} onDone={loadProducts}/>}
+      {tab === 'fotos' && <FotosPanel productos={productos} fotos={fotos} onChange={loadFotos}/>}
 
       {/* Tab: Pedidos */}
       {tab === 'pedidos' && (
@@ -417,16 +413,23 @@ export default function AdminPage(): JSX.Element {
                   onChange={e=>setEditing({...editing,stock:parseInt(e.target.value)||0})}/>
               </div>
               <div style={s.formGroup}>
-                <label style={s.label}>Precio Outlet</label>
+                <label style={s.label}>Precio Outlet (+ IVA)</label>
                 <input style={s.input} type="number" value={editing.precio_outlet}
                   onChange={e=>setEditing({...editing,precio_outlet:parseFloat(e.target.value)||0})}/>
               </div>
             </div>
 
             <div style={s.formGroup}>
-              <label style={s.label}>Precio distribuidor (tachado en la web)</label>
+              <label style={s.label}>Precio público (tachado en la web)</label>
               <input style={s.input} type="number" value={editing.precio_publico}
                 onChange={e=>setEditing({...editing,precio_publico:parseFloat(e.target.value)||0})}/>
+            </div>
+
+            <div style={s.formGroup}>
+              <label style={{...s.label,display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
+                <input type="checkbox" checked={!!editing.consultar_precio} onChange={e=>setEditing({...editing,consultar_precio:e.target.checked})}/>
+                Mostrar “Consultar precio” en lugar del precio
+              </label>
             </div>
 
             <div style={s.formGroup}>
@@ -451,30 +454,16 @@ export default function AdminPage(): JSX.Element {
             </div>
 
             <div style={s.formGroup}>
-              <label style={s.label}>Imagen del producto</label>
-              {(()=>{
-                const previewUrl = editing.imagen_url || getStorageUrl(editing.id)
-                return (
-                  <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
-                    <img src={previewUrl} alt="preview"
-                      style={{width:80,height:80,objectFit:'contain',border:'1px solid #e4e4e2',borderRadius:8,background:'#f5f5f3'}}
-                      onError={e=>{e.currentTarget.style.opacity='0.1'}}/>
-                    <div style={{fontSize:12,color:'#888',lineHeight:1.6}}>
-                      {editing.imagen_url?'Imagen en tabla':'Imagen desde Storage'}<br/>
-                      <span style={{fontSize:11,color:'#bbb'}}>{previewUrl.split('/').pop()?.split('?')[0]}</span><br/>
-                      <span style={{fontSize:11,color:'#f15922',cursor:'pointer',textDecoration:'underline'}} onClick={()=>fileRef.current?.click()}>
-                        Reemplazar imagen
-                      </span>
-                    </div>
-                  </div>
-                )
-              })()}
+              <label style={s.label}>Foto del producto (vale para todos los lotes de {editing.codigo})</label>
+              {fotos[editing.codigo]
+                ? <img src={fotos[editing.codigo]} alt="preview" style={{width:80,height:80,objectFit:'contain',border:'1px solid #e4e4e2',borderRadius:8,background:'#f5f5f3',marginBottom:10}}/>
+                : <div style={{fontSize:12,color:'#e65100',marginBottom:10}}>Todavía no tiene foto</div>}
               <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleFileChange}/>
               <button onClick={()=>fileRef.current?.click()} disabled={uploading}
                 style={{width:'100%',padding:'12px',border:'2px dashed #e4e4e2',borderRadius:10,background:'#f9f9f9',cursor:uploading?'wait':'pointer',fontSize:13,color:'#888',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}
                 onMouseEnter={e=>{e.currentTarget.style.borderColor='#f15922';e.currentTarget.style.background='#fff4f0'}}
                 onMouseLeave={e=>{e.currentTarget.style.borderColor='#e4e4e2';e.currentTarget.style.background='#f9f9f9'}}>
-                {uploading?'⏳ Subiendo...':'📷 Seleccionar imagen'}
+                {uploading?'⏳ Subiendo...':fotos[editing.codigo]?'📷 Reemplazar foto':'📷 Subir foto'}
               </button>
             </div>
 
