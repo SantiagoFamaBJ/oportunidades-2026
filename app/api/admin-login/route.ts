@@ -1,10 +1,29 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server'
+import { createToken, COOKIE_NAME, sessionCookieOptions } from '@/lib/adminSession'
 
-// La clave vive solo en el servidor (variable DM_ADMIN_PASSWORD en Vercel, sin NEXT_PUBLIC_).
-const PASSWORD = process.env.DM_ADMIN_PASSWORD || 'dm2026';
+const PASSWORD = process.env.DM_ADMIN_PASSWORD
 
 export async function POST(req: Request) {
-  const { password } = await req.json().catch(() => ({ password: '' }));
-  const ok = typeof password === 'string' && password.trim() === PASSWORD;
-  return NextResponse.json({ ok }, { status: ok ? 200 : 401 });
+  // Si no hay contraseña configurada, no dejamos entrar
+  if (!PASSWORD) {
+    return NextResponse.json({ ok: false }, { status: 503 })
+  }
+
+  let password: string
+  try {
+    const body = await req.json()
+    password = typeof body.password === 'string' ? body.password.trim() : ''
+  } catch {
+    return NextResponse.json({ ok: false }, { status: 400 })
+  }
+
+  if (!password || password !== PASSWORD) {
+    return NextResponse.json({ ok: false }, { status: 401 })
+  }
+
+  // Contraseña correcta: crear token firmado y setearlo en cookie httpOnly
+  const token = createToken()
+  const response = NextResponse.json({ ok: true }, { status: 200 })
+  response.cookies.set(COOKIE_NAME, token, sessionCookieOptions())
+  return response
 }

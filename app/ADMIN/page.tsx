@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase, Producto } from '@/lib/supabase'
 
-const BUCKET = 'product-images'
 const STORAGE_BASE = 'https://larqxmgyutqiktsforgz.supabase.co/storage/v1/object/public/product-images'
 
 function getStorageUrl(id: string): string {
@@ -38,16 +37,14 @@ export default function AdminPage(): JSX.Element {
   const [newCat, setNewCat] = useState('')
   const [showCats, setShowCats] = useState(false)
 
+  // Verificar sesión via cookie httpOnly al montar
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if (sessionStorage.getItem('dm_admin_auth') === '1') setAuth(true)
-    }
+    fetch('/api/admin/check').then(r => { if (r.ok) setAuth(true) })
   }, [])
 
   async function login() {
     const res = await fetch('/api/admin-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pass }) })
     if (res.ok) {
-      sessionStorage.setItem('dm_admin_auth', '1')
       setAuth(true)
     } else {
       setPassErr(true)
@@ -80,14 +77,16 @@ export default function AdminPage(): JSX.Element {
     if (landingActiva === null) return
     const nuevoValor = !landingActiva
     setTogglingLanding(true)
-    const { error } = await supabase
-      .from('oportunidades_config')
-      .update({ landing_activa: nuevoValor })
-      .eq('id', 1)
-    if (!error) {
+    const res = await fetch('/api/admin/toggle-landing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ valor: nuevoValor }),
+    })
+    if (res.ok) {
       setLandingActiva(nuevoValor)
     } else {
-      alert('Error al cambiar estado: ' + error.message)
+      const err = await res.json().catch(() => ({}))
+      alert('Error al cambiar estado: ' + (err.error || res.status))
     }
     setTogglingLanding(false)
   }
@@ -109,12 +108,22 @@ export default function AdminPage(): JSX.Element {
     const path = `${editing!.id}.${ext}`
     setUploading(true)
     setSaveMsg('Subiendo imagen...')
-    const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true, contentType: file.type })
-    if (error) { setSaveMsg('❌ Error: ' + error.message); setUploading(false); return null }
-    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
+
+    const form = new FormData()
+    form.append('file', file)
+    form.append('path', path)
+
+    const res = await fetch('/api/admin/upload-image', { method: 'POST', body: form })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      setSaveMsg('❌ Error: ' + (err.error || res.status))
+      setUploading(false)
+      return null
+    }
+    const data = await res.json()
     setUploading(false)
     setSaveMsg('✅ Imagen subida')
-    return data.publicUrl + '?t=' + Date.now()
+    return data.url
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -127,22 +136,27 @@ export default function AdminPage(): JSX.Element {
   async function saveEdit() {
     if (!editing) return
     setSaveMsg('Guardando...')
-    const { error, data } = await supabase.from('productos_oportunidades').update({
-      stock: editing.stock,
-      imagen_url: editing.imagen_url,
-      activo: editing.activo,
-      precio_outlet: editing.precio_outlet,
-      precio_publico: editing.precio_publico,
-      promo: editing.promo,
-      lote: editing.lote,
-      categoria: editing.categoria,
-      nombre: editing.nombre,
-    }).eq('id', editing.id).select()
-    if (error) {
-      setSaveMsg('❌ Error: ' + error.message + ' (' + error.code + ')')
-    } else if (!data || data.length === 0) {
-      setSaveMsg('⚠️ No se actualizó. Falta policy UPDATE en Supabase.')
+    const res = await fetch('/api/admin/save-producto', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: editing.id,
+        stock: editing.stock,
+        imagen_url: editing.imagen_url,
+        activo: editing.activo,
+        precio_outlet: editing.precio_outlet,
+        precio_publico: editing.precio_publico,
+        promo: editing.promo,
+        lote: editing.lote,
+        categoria: editing.categoria,
+        nombre: editing.nombre,
+      }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      setSaveMsg('❌ Error: ' + (err.error || res.status))
     } else {
+      const result = await res.json()
       setSaveMsg('✅ Guardado')
       setProductos(prev => prev.map(p => p.id === editing.id ? editing : p))
       const updatedCats = Array.from(new Set([...cats, editing.categoria].filter(Boolean))).sort()
@@ -156,13 +170,22 @@ export default function AdminPage(): JSX.Element {
     const newValue = !p[field]
     // Optimistic update
     setProductos(prev => prev.map(x => x.id === p.id ? { ...x, [field]: newValue } : x))
-    const { error } = await supabase.from('productos_oportunidades')
-      .update({ [field]: newValue }).eq('id', p.id)
-    if (error) {
+    const res = await fetch('/api/admin/toggle-field', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: p.id, field, value: newValue }),
+    })
+    if (!res.ok) {
       // revertir si falla
       setProductos(prev => prev.map(x => x.id === p.id ? { ...x, [field]: p[field] } : x))
-      alert('Error al actualizar: ' + error.message)
+      const err = await res.json().catch(() => ({}))
+      alert('Error al actualizar: ' + (err.error || res.status))
     }
+  }
+
+  async function logout() {
+    await fetch('/api/admin/logout', { method: 'POST' })
+    setAuth(false)
   }
 
   async function addCat() {
@@ -245,7 +268,7 @@ export default function AdminPage(): JSX.Element {
           <button style={{...s.fBtn,...(tab==='pedidos'?s.fBtnActive:{})}} onClick={()=>setTab('pedidos')}>📋 Pedidos</button>
           <button style={{...s.fBtn,...(showCats?s.fBtnActive:{})}} onClick={()=>setShowCats(v=>!v)}>🏷 Categorías</button>
           <a href="/" target="_blank" style={s.viewLink}>Ver landing →</a>
-          <button style={s.logoutBtn} onClick={()=>{sessionStorage.removeItem('dm_admin_auth');setAuth(false)}}>Salir</button>
+          <button style={s.logoutBtn} onClick={logout}>Salir</button>
         </div>
       </div>
 
