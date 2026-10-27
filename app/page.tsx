@@ -2,6 +2,9 @@
 import { useEffect, useState } from 'react'
 import { supabase, Producto } from '@/lib/supabase'
 import LandingClient from '@/components/LandingClient'
+import { cargarFotos } from '@/lib/fotos'
+
+const conFotos = (ps: Producto[], f: Record<string, string>) => ps.map(p => ({ ...p, imagen_url: f[p.codigo] ?? null }))
 
 const SUPABASE_URL = 'https://larqxmgyutqiktsforgz.supabase.co'
 
@@ -29,7 +32,8 @@ export default function Home() {
       .select('*')
       .eq('activo', true)
       .order('fecha_venc', { ascending: true })
-    if (!error) setProductos((data || []) as Producto[])
+    const fotos = await cargarFotos()
+    if (!error) setProductos(conFotos((data || []) as Producto[], fotos))
     setLoading(false)
   }
 
@@ -50,7 +54,7 @@ export default function Home() {
               .select('*')
               .eq('activo', true)
               .order('fecha_venc', { ascending: true })
-              .then(({ data }) => { if (data) setProductos(data as Producto[]) })
+              .then(async ({ data }) => { if (data) setProductos(conFotos(data as Producto[], await cargarFotos())) })
           }
         })
     }
