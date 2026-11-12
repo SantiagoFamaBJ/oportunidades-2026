@@ -5,6 +5,7 @@ import { cargarFotos, subirFoto } from '@/lib/fotos'
 import { adminPost } from '@/lib/adminApi'
 import ImportarLista from '@/components/admin/ImportarLista'
 import FotosPanel from '@/components/admin/FotosPanel'
+import VendedoresPanel from '@/components/admin/VendedoresPanel'
 function fmt(n: number) { return '$ ' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtDate(iso: string) { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
 
@@ -20,7 +21,7 @@ export default function AdminPage(): JSX.Element {
   const [filter, setFilter] = useState<'all'|'visibles'|'urgente'|'ocultos'|'sin_imagen'>('visibles')
   const [catFilter, setCatFilter] = useState('all')
   const [uploading, setUploading] = useState(false)
-  const [tab, setTab] = useState<'productos'|'importar'|'fotos'|'pedidos'>('productos')
+  const [tab, setTab] = useState<'productos'|'importar'|'fotos'|'pedidos'|'vendedores'>('productos')
   const [fotos, setFotos] = useState<Record<string,string>>({})
   const [pedidos, setPedidos] = useState<any[]>([])
   const [loadingPedidos, setLoadingPedidos] = useState(false)
@@ -241,6 +242,7 @@ export default function AdminPage(): JSX.Element {
           <button style={{...s.fBtn,...(tab==='importar'?s.fBtnActive:{})}} onClick={()=>setTab('importar')}>⬆️ Actualizar lista</button>
           <button style={{...s.fBtn,...(tab==='fotos'?s.fBtnActive:{})}} onClick={()=>setTab('fotos')}>📷 Fotos{sinImagen>0?` (${sinImagen})`:''}</button>
           <button style={{...s.fBtn,...(tab==='pedidos'?s.fBtnActive:{})}} onClick={()=>setTab('pedidos')}>📋 Pedidos</button>
+          <button style={{...s.fBtn,...(tab==='vendedores'?s.fBtnActive:{})}} onClick={()=>setTab('vendedores')}>👥 Vendedores</button>
           <button style={{...s.fBtn,...(showCats?s.fBtnActive:{})}} onClick={()=>setShowCats(v=>!v)}>🏷 Categorías</button>
           <a href="/" target="_blank" style={s.viewLink}>Ver landing →</a>
           <button style={s.logoutBtn} onClick={logout}>Salir</button>
@@ -350,6 +352,7 @@ export default function AdminPage(): JSX.Element {
 
       {tab === 'importar' && <ImportarLista productos={productos} onDone={loadProducts}/>}
       {tab === 'fotos' && <FotosPanel productos={productos} fotos={fotos} onChange={loadFotos}/>}
+      {tab === 'vendedores' && <VendedoresPanel onSesionVencida={()=>setAuth(false)}/>}
 
       {/* Tab: Pedidos */}
       {tab === 'pedidos' && (

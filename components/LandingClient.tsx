@@ -1,12 +1,14 @@
 'use client'
-import { useState, useMemo } from 'react'
-import { Producto } from '@/lib/supabase'
+import { useState, useMemo, useEffect } from 'react'
+import { Producto, supabase } from '@/lib/supabase'
 import { LOGO_B64 } from '@/lib/logo'
 import { tieneDescuento, pctDescuento, promoDe, sinPrecio, detallePromo, precioFinal } from '@/lib/precio'
 
 const fmt = (n: number) => '$\u00a0' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtDate = (iso: string) => { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
-const VENDEDORES = [
+type Vendedor = { nombre: string; wa: string }
+// Respaldo por si no se puede leer la tabla de vendedores (se editan desde el admin)
+const VENDEDORES_RESPALDO: Vendedor[] = [
   { nombre: 'Gustavo Sopa',      wa: '5491131007959' },
   { nombre: 'Norberto Bronn',    wa: '5491133250213' },
   { nombre: 'Juan Pablo Bosio',  wa: '5493515599178' },
@@ -88,10 +90,20 @@ function Cart({ items, onClose, onRemove, onQty }: {
 }) {
   const [vendedor, setVendedor] = useState('')
   const [sending, setSending] = useState(false)
+  const [vendedores, setVendedores] = useState<Vendedor[]>(VENDEDORES_RESPALDO)
+
+  useEffect(() => {
+    supabase.from('vendedores_oportunidades').select('nombre, whatsapp').eq('activo', true)
+      .order('orden').order('created_at')
+      .then(({ data, error }) => {
+        if (!error && data && data.length) setVendedores(data.map((v: any) => ({ nombre: v.nombre, wa: v.whatsapp })))
+      })
+  }, [])
 
   async function sendWA() {
     if (items.length === 0 || !vendedor) return
-    const v = VENDEDORES.find(v => v.nombre === vendedor)!
+    const v = vendedores.find(v => v.nombre === vendedor)
+    if (!v) return
     const total = items.reduce((sum, i) => sum + subtotal(i), 0)
     const haySinPrecio = items.some(i => sinPrecio(i.producto))
     const lines = items.map(i =>
@@ -165,7 +177,7 @@ function Cart({ items, onClose, onRemove, onQty }: {
               <select value={vendedor} onChange={e=>setVendedor(e.target.value)}
                 style={{width:'100%',padding:'9px 12px',border:`1.5px solid ${vendedor?'#e4e4e2':'#f15922'}`,borderRadius:8,fontSize:13,background:'#f7f7f5',color:vendedor?'#1a1a1a':'#aaa',outline:'none',cursor:'pointer'}}>
                 <option value="">Seleccioná tu vendedor…</option>
-                {VENDEDORES.map(v=><option key={v.wa} value={v.nombre}>{v.nombre}</option>)}
+                {vendedores.map(v=><option key={v.wa} value={v.nombre}>{v.nombre}</option>)}
               </select>
               {!vendedor && <div style={{fontSize:11,color:'#f15922',marginTop:4,fontWeight:600}}>* Necesario para enviar la consulta</div>}
             </div>
