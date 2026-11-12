@@ -299,7 +299,7 @@ export default function AdminPage(): JSX.Element {
                 <th style={s.th}>Vence</th>
                 <th style={s.th}>Stock</th>
                 <th style={s.th}>Outlet</th>
-                <th style={s.th}>Público</th>
+                <th style={s.th}>Lista 1</th>
                 <th style={s.th}>Imagen</th>
                 <th style={s.th}>Urgente</th>
                 <th style={s.th}>Visible</th>
@@ -423,7 +423,7 @@ export default function AdminPage(): JSX.Element {
             </div>
 
             <div style={s.formGroup}>
-              <label style={s.label}>Precio público (tachado en la web)</label>
+              <label style={s.label}>Precio Lista 1 + IVA (tachado en la web)</label>
               <input style={s.input} type="number" value={editing.precio_publico}
                 onChange={e=>setEditing({...editing,precio_publico:parseFloat(e.target.value)||0})}/>
             </div>
