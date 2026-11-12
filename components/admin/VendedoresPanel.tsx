@@ -109,7 +109,7 @@ export default function VendedoresPanel({ onSesionVencida }: { onSesionVencida: 
       {cargando ? <div style={{ color: '#888', padding: 30, textAlign: 'center' }}>Cargando...</div> : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {lista.map((v, i) => (
-            <div key={v.id} style={{ background: '#fff', border: '1.5px solid #e4e4e2', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, background: v.activo ? '#fff' : '#fafafa' }}>
+            <div key={v.id} style={{ border: '1.5px solid #e4e4e2', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, background: v.activo ? '#fff' : '#fafafa' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <button style={{ ...btn, padding: '0 6px', fontSize: 10, lineHeight: '16px' }} disabled={i === 0} onClick={() => mover(i, -1)} title="Subir">▲</button>
                 <button style={{ ...btn, padding: '0 6px', fontSize: 10, lineHeight: '16px' }} disabled={i === lista.length - 1} onClick={() => mover(i, 1)} title="Bajar">▼</button>
