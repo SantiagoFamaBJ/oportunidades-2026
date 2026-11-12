@@ -63,5 +63,13 @@ export async function POST(req: Request) {
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true, guardados: filas.length, ocultados: ocultar.length })
+  // Completa las fotos que falten con la biblioteca IDS (nunca pisa las que subiste a mano)
+  const { data: fotosNuevas, error: errFotos } = await db.rpc('sync_fotos_desde_ids')
+
+  return NextResponse.json({
+    ok: true,
+    guardados: filas.length,
+    ocultados: ocultar.length,
+    fotos_ids: errFotos ? 0 : (fotosNuevas ?? 0),
+  })
 }

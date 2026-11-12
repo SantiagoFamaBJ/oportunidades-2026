@@ -119,8 +119,9 @@ export function armarPlan(rows: unknown[][], existentes: Producto[]): PlanImport
   }
 }
 
-export async function aplicarPlan(plan: PlanImportacion, onProgreso?: (msg: string) => void): Promise<void> {
+export async function aplicarPlan(plan: PlanImportacion, onProgreso?: (msg: string) => void): Promise<{ fotos_ids: number }> {
   onProgreso?.(`Guardando ${plan.filas.length} productos…`)
   const r = await adminPost('/api/admin/importar', { filas: plan.filas, ocultar: plan.aOcultar.map(p => p.id) })
   if (!r.ok) throw new Error(r.error)
+  return { fotos_ids: Number(r.data?.fotos_ids) || 0 }
 }

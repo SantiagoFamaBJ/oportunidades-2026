@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   const { data } = db.storage.from(BUCKET).getPublicUrl(path)
   const url = `${data.publicUrl}?t=${Date.now()}`
   const { error } = await db.from('fotos_productos')
-    .upsert({ codigo, imagen_url: url, updated_at: new Date().toISOString() }, { onConflict: 'codigo' })
+    .upsert({ codigo, imagen_url: url, origen: 'manual', updated_at: new Date().toISOString() }, { onConflict: 'codigo' })
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
 
   return NextResponse.json({ ok: true, url })
@@ -50,7 +50,16 @@ export async function DELETE(req: Request) {
   if (!CODIGO_RE.test(codigo)) return NextResponse.json({ ok: false, error: 'Código inválido' }, { status: 400 })
 
   const db = supabaseAdmin()
-  const { data: row } = await db.from('fotos_productos').select('imagen_url').eq('codigo', codigo).maybeSingle()
+  const { data: row } = await db.from('fotos_productos').select('imagen_url, origen').eq('codigo', codigo).maybeSingle()
+
+  // Las fotos que vienen de la biblioteca IDS no se borran del storage (las usa otra app):
+  // se marcan como descartadas para que no vuelvan en la próxima sincronización.
+  if (row?.origen === 'ids') {
+    const { error } = await db.from('fotos_productos').update({ origen: 'descartada', updated_at: new Date().toISOString() }).eq('codigo', codigo)
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+
   const path = row?.imagen_url ? decodeURIComponent(row.imagen_url.split(`/${BUCKET}/`)[1]?.split('?')[0] || '') : ''
   if (path) await db.storage.from(BUCKET).remove([path])
 

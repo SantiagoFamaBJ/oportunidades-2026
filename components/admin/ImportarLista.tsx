@@ -32,8 +32,8 @@ export default function ImportarLista({ productos, onDone }: { productos: Produc
     if (!plan) return
     setBusy(true); setErr('')
     try {
-      await aplicarPlan(plan, setMsg)
-      setMsg(`✅ Listo: ${plan.filas.length} productos publicados, ${plan.aOcultar.length} ocultados.`)
+      const { fotos_ids } = await aplicarPlan(plan, setMsg)
+      setMsg(`✅ Listo: ${plan.filas.length} productos publicados, ${plan.aOcultar.length} ocultados${fotos_ids ? `, ${fotos_ids} fotos tomadas de la biblioteca IDS` : ''}.`)
       setPlan(null)
       onDone()
     } catch (e: any) { setErr('Error al guardar: ' + (e.message || e)) }

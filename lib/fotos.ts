@@ -5,7 +5,8 @@ export const FOTOS_BUCKET = 'oportunidades-fotos'
 
 /** Mapa codigo -> url de la foto (biblioteca de fotos por código). */
 export async function cargarFotos(): Promise<Record<string, string>> {
-  const { data } = await supabase.from('fotos_productos').select('codigo, imagen_url')
+  // 'descartada' = foto de IDS que borraste desde el admin: no se muestra
+  const { data } = await supabase.from('fotos_productos').select('codigo, imagen_url').neq('origen', 'descartada')
   const map: Record<string, string> = {}
   for (const f of data || []) map[f.codigo] = f.imagen_url
   return map
