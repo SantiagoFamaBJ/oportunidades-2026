@@ -312,7 +312,7 @@ export default function AdminPage(): JSX.Element {
                   <td style={s.td}><span style={{fontSize:11,color:'#888'}}>{p.categoria||'—'}</span></td>
                   <td style={{...s.td,...(p.es_urgente?s.urgText:{})}}>{fmtDate(p.fecha_venc)}</td>
                   <td style={s.td}>{p.stock}</td>
-                  <td style={s.td}>{p.promo?.trim() ? <span style={{fontSize:11,fontWeight:800,color:'#16a34a'}}>Promo {p.promo}</span> : p.consultar_precio ? <span style={{fontSize:11,fontWeight:700,color:'#b06030'}}>Consultar</span> : fmt(p.precio_outlet)}</td>
+                  <td style={s.td}>{p.promo?.trim() ? <span style={{fontSize:11,fontWeight:800,color:'#16a34a'}}>Promo {p.promo}{p.precio_publico ? ` · ${fmt(p.precio_publico)}` : ''}</span> : p.consultar_precio ? <span style={{fontSize:11,fontWeight:700,color:'#b06030'}}>Consultar</span> : fmt(p.precio_outlet)}</td>
                   <td style={s.td}><span style={{color:'#bbb',textDecoration:'line-through',fontSize:12}}>{fmt(p.precio_publico)}</span></td>
                   <td style={s.td}>
                     {fotos[p.codigo]
@@ -381,7 +381,7 @@ export default function AdminPage(): JSX.Element {
                           <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginRight:8}}>{item.nombre}</span>
                           <span style={{color:'#888',flexShrink:0,marginRight:8}}>Lote: {item.lote}</span>
                           <span style={{flexShrink:0,fontWeight:700,marginRight:8}}>x{item.qty}</span>
-                          <span style={{flexShrink:0,color:item.promo?'#16a34a':'#f15922',fontWeight:600}}>{item.promo ? `Promo ${item.promo}` : item.precio_outlet === null ? 'Consultar' : fmt(item.subtotal)}</span>
+                          <span style={{flexShrink:0,color:item.promo?'#16a34a':'#f15922',fontWeight:600}}>{item.promo ? `Promo ${item.promo}${item.subtotal ? ` · ${fmt(item.subtotal)}` : ''}` : item.precio_outlet === null ? 'Consultar' : fmt(item.subtotal)}</span>
                         </div>
                       ))}
                     </div>

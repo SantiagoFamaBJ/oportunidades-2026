@@ -6,9 +6,21 @@ export function promoDe(p: Producto): string | null {
   return v || null
 }
 
-/** Productos que no muestran precio: con promo o "Consultar precio". No suman al total. */
+/**
+ * Precio que se cobra por unidad:
+ * - con promo: el precio público (lista), sin descuento del mes
+ * - "Consultar precio": null
+ * - resto: el precio outlet
+ */
+export function precioFinal(p: Producto): number | null {
+  if (promoDe(p)) return p.precio_publico > 0 ? p.precio_publico : null
+  if (p.consultar_precio) return null
+  return p.precio_outlet
+}
+
+/** Sin precio para mostrar ni sumar al total. */
 export function sinPrecio(p: Producto): boolean {
-  return !!promoDe(p) || !!p.consultar_precio
+  return precioFinal(p) === null
 }
 
 /** Bajada de la promo. "2+1" -> "Comprás 2 y te llevás 1 más sin cargo". */
@@ -21,7 +33,7 @@ export function detallePromo(promo: string): string {
 
 /** true si hay que mostrar precio tachado + % de descuento. */
 export function tieneDescuento(p: Producto): boolean {
-  if (sinPrecio(p)) return false
+  if (promoDe(p) || sinPrecio(p)) return false
   if (!p.precio_publico || p.precio_publico <= p.precio_outlet) return false
   if (p.descuento_pct === 0) return false
   return true

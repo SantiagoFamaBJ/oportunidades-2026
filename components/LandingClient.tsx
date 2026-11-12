@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react'
 import { Producto } from '@/lib/supabase'
 import { LOGO_B64 } from '@/lib/logo'
-import { tieneDescuento, pctDescuento, promoDe, sinPrecio, detallePromo } from '@/lib/precio'
+import { tieneDescuento, pctDescuento, promoDe, sinPrecio, detallePromo, precioFinal } from '@/lib/precio'
 
 const fmt = (n: number) => '$\u00a0' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtDate = (iso: string) => { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
@@ -33,7 +33,7 @@ async function logPedido(vendedor: string, items: CartItem[], total: number) {
           nombre: i.producto.nombre,
           lote: i.producto.lote,
           qty: i.qty,
-          precio_outlet: sinPrecio(i.producto) ? null : i.producto.precio_outlet,
+          precio_outlet: precioFinal(i.producto),
           promo: promoDe(i.producto),
           subtotal: subtotal(i),
         })),
@@ -43,8 +43,13 @@ async function logPedido(vendedor: string, items: CartItem[], total: number) {
   } catch (_) {}
 }
 
-const subtotal = (i: CartItem) => sinPrecio(i.producto) ? 0 : i.producto.precio_outlet * i.qty
-const precioTexto = (p: Producto) => promoDe(p) ? `Promo ${promoDe(p)}` : p.consultar_precio ? 'Consultar precio' : fmt(p.precio_outlet)
+const subtotal = (i: CartItem) => (precioFinal(i.producto) ?? 0) * i.qty
+// Texto del precio unitario (carrito)
+const precioTexto = (p: Producto) => {
+  const pf = precioFinal(p)
+  if (promoDe(p)) return pf === null ? `Promo ${promoDe(p)}` : `Promo ${promoDe(p)} · ${fmt(pf)}`
+  return pf === null ? 'Consultar precio' : fmt(pf)
+}
 
 const C_PROMO = '#16a34a'
 
@@ -68,8 +73,8 @@ const SORTS = [
   // En "Mayor descuento" las promos van primero; "Consultar precio" al final
   {label:'Mayor descuento', fn:(a:Producto,b:Producto)=>(Number(!!a.consultar_precio&&!promoDe(a))-Number(!!b.consultar_precio&&!promoDe(b)))||(Number(!!promoDe(b))-Number(!!promoDe(a)))||pctDescuento(b)-pctDescuento(a)},
   {label:'Vence primero',   fn:(a:Producto,b:Producto)=>a.fecha_venc.localeCompare(b.fecha_venc)},
-  {label:'Menor precio',    fn:(a:Producto,b:Producto)=>cp(a,b)||a.precio_outlet-b.precio_outlet},
-  {label:'Mayor precio',    fn:(a:Producto,b:Producto)=>cp(a,b)||b.precio_outlet-a.precio_outlet},
+  {label:'Menor precio',    fn:(a:Producto,b:Producto)=>cp(a,b)||(precioFinal(a)??0)-(precioFinal(b)??0)},
+  {label:'Mayor precio',    fn:(a:Producto,b:Producto)=>cp(a,b)||(precioFinal(b)??0)-(precioFinal(a)??0)},
 ]
 
 type CartItem = { producto: Producto; qty: number }
@@ -90,9 +95,9 @@ function Cart({ items, onClose, onRemove, onQty }: {
     const total = items.reduce((sum, i) => sum + subtotal(i), 0)
     const haySinPrecio = items.some(i => sinPrecio(i.producto))
     const lines = items.map(i =>
-      `• ${i.producto.nombre} - Lote: ${i.producto.lote} - Cant: ${i.qty} - ${sinPrecio(i.producto) ? precioTexto(i.producto) : fmt(subtotal(i))}`
+      `• ${i.producto.nombre} - Lote: ${i.producto.lote} - Cant: ${i.qty} - ${promoDe(i.producto) ? `Promo ${promoDe(i.producto)} - ` : ''}${sinPrecio(i.producto) ? 'Consultar precio' : fmt(subtotal(i))}`
     ).join('\n')
-    const msg = `¡Hola! Me gustaría consultar por las siguientes oportunidades:\n\n${lines}\n\nTotal aprox: ${fmt(total)} (+ IVA)${haySinPrecio ? ' — sin incluir promos ni precios a consultar' : ''}\n\nAguardo respuesta. Saludos.`
+    const msg = `¡Hola! Me gustaría consultar por las siguientes oportunidades:\n\n${lines}\n\nTotal aprox: ${fmt(total)} (+ IVA)${haySinPrecio ? ' — sin incluir los de precio a consultar' : ''}\n\nAguardo respuesta. Saludos.`
     setSending(true)
     await logPedido(vendedor, items, total)
     setSending(false)
@@ -149,7 +154,7 @@ function Cart({ items, onClose, onRemove, onQty }: {
               </span>
             </div>
             <div style={{fontSize:10,color:'#b06030',fontWeight:700,textAlign:'right',marginBottom:12}}>
-              + IVA no incluido{items.some(i=>sinPrecio(i.producto))?' · sin promos ni precios a consultar':''}
+              + IVA no incluido{items.some(i=>sinPrecio(i.producto))?' · sin los de precio a consultar':''}
             </div>
 
             {/* Selector vendedor */}
@@ -207,7 +212,8 @@ function Modal({p, onClose, onAdd}:{p:Producto;onClose:()=>void;onAdd:(p:Product
             {promoDe(p) ? (<>
               <div style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:1.2,color:C_PROMO,marginBottom:2}}>Promo</div>
               <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:56,fontWeight:900,color:C_PROMO,lineHeight:1,letterSpacing:-1,marginBottom:6}}>{promoDe(p)}</div>
-              <div style={{fontSize:13,color:C_PROMO,fontWeight:700}}>🎁 {detallePromo(promoDe(p)!)}</div>
+              {precioFinal(p) !== null && <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:28,fontWeight:900,color:'#f15922',lineHeight:1,marginBottom:6}}>{fmt(precioFinal(p)!)}</div>}
+              <div style={{fontSize:13,color:C_PROMO,fontWeight:700,marginBottom:6}}>🎁 {detallePromo(promoDe(p)!)}</div>
             </>) : p.consultar_precio ? (
               <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:34,fontWeight:900,color:'#f15922',lineHeight:1.1,marginBottom:8}}>Consultar precio</div>
             ) : (<>
@@ -218,7 +224,7 @@ function Modal({p, onClose, onAdd}:{p:Producto;onClose:()=>void;onAdd:(p:Product
             </div>
             {desc && <div style={{fontSize:13,color:'#aaa',marginBottom:6}}>Precio público: <s>{fmt(p.precio_publico)}</s></div>}
             </>)}
-            {!promoDe(p) && <div style={{fontSize:11,color:'#b06030',fontWeight:700,background:'#fff0e6',padding:'4px 8px',borderRadius:5,display:'inline-block'}}>+ IVA no incluido</div>}
+            {!sinPrecio(p) && <div style={{fontSize:11,color:'#b06030',fontWeight:700,background:'#fff0e6',padding:'4px 8px',borderRadius:5,display:'inline-block'}}>+ IVA no incluido</div>}
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:16}}>
             {[{l:'Vencimiento',v:fmtDate(p.fecha_venc),r:p.es_urgente},{l:'Stock',v:`${p.stock} u.`,r:false},{l:'Lote',v:p.lote,r:false}].map(({l,v,r})=>(
@@ -265,6 +271,10 @@ function CardGrid({p,onClick,onAdd,inCart}:{p:Producto;onClick:()=>void;onAdd:(p
             {promoDe(p) ? (<>
               <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:C_PROMO,marginBottom:2}}>Promo</div>
               <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:34,fontWeight:900,color:C_PROMO,lineHeight:1,letterSpacing:-0.5}}>{promoDe(p)}</div>
+              {precioFinal(p) !== null && <>
+                <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:20,fontWeight:900,color:'#f15922',lineHeight:1,marginTop:4}}>{fmt(precioFinal(p)!)}</div>
+                <div style={{fontSize:9,color:'#b06030',fontWeight:700,marginTop:2}}>+ IVA no incluido</div>
+              </>}
               <div style={{fontSize:10,color:C_PROMO,fontWeight:700,marginTop:3,lineHeight:1.3}}>{detallePromo(promoDe(p)!)}</div>
             </>) : p.consultar_precio ? (
               <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:20,fontWeight:900,color:'#f15922',lineHeight:1.1,padding:'6px 0'}}>Consultar precio</div>
@@ -318,6 +328,10 @@ function CardList({p,onClick,onAdd,inCart}:{p:Producto;onClick:()=>void;onAdd:(p
           {promoDe(p) ? (<>
             <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:C_PROMO,marginBottom:2}}>Promo</div>
             <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:28,fontWeight:900,color:C_PROMO,lineHeight:1}}>{promoDe(p)}</div>
+            {precioFinal(p) !== null && <>
+              <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:16,fontWeight:900,color:'#f15922',lineHeight:1,marginTop:2}}>{fmt(precioFinal(p)!)}</div>
+              <div style={{fontSize:9,color:'#b06030',fontWeight:700,marginTop:2}}>+ IVA no incluido</div>
+            </>}
           </>) : p.consultar_precio ? (
             <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:17,fontWeight:900,color:'#f15922',lineHeight:1.1}}>Consultar precio</div>
           ) : (<>
