@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react'
 import { Producto } from '@/lib/supabase'
 import { LOGO_B64 } from '@/lib/logo'
-import { tieneDescuento, pctDescuento } from '@/lib/precio'
+import { tieneDescuento, pctDescuento, promoDe, sinPrecio, detallePromo } from '@/lib/precio'
 
 const fmt = (n: number) => '$\u00a0' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtDate = (iso: string) => { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
@@ -33,8 +33,9 @@ async function logPedido(vendedor: string, items: CartItem[], total: number) {
           nombre: i.producto.nombre,
           lote: i.producto.lote,
           qty: i.qty,
-          precio_outlet: i.producto.consultar_precio ? null : i.producto.precio_outlet,
-          subtotal: i.producto.consultar_precio ? 0 : i.producto.precio_outlet * i.qty,
+          precio_outlet: sinPrecio(i.producto) ? null : i.producto.precio_outlet,
+          promo: promoDe(i.producto),
+          subtotal: subtotal(i),
         })),
         total,
       })
@@ -42,7 +43,10 @@ async function logPedido(vendedor: string, items: CartItem[], total: number) {
   } catch (_) {}
 }
 
-const subtotal = (i: CartItem) => i.producto.consultar_precio ? 0 : i.producto.precio_outlet * i.qty
+const subtotal = (i: CartItem) => sinPrecio(i.producto) ? 0 : i.producto.precio_outlet * i.qty
+const precioTexto = (p: Producto) => promoDe(p) ? `Promo ${promoDe(p)}` : p.consultar_precio ? 'Consultar precio' : fmt(p.precio_outlet)
+
+const C_PROMO = '#16a34a'
 
 /* Foto desde la biblioteca por código (viene en p.imagen_url) */
 function Img({ p, h }: { p: Producto; h: number }) {
@@ -58,10 +62,11 @@ function Img({ p, h }: { p: Producto; h: number }) {
     onError={()=>setFail(true)}/>
 }
 
-// "Consultar precio" siempre al final en los órdenes por precio/descuento
-const cp = (a:Producto,b:Producto) => Number(!!a.consultar_precio) - Number(!!b.consultar_precio)
+// Promos y "Consultar precio" siempre al final en los órdenes por precio/descuento
+const cp = (a:Producto,b:Producto) => Number(sinPrecio(a)) - Number(sinPrecio(b))
 const SORTS = [
-  {label:'Mayor descuento', fn:(a:Producto,b:Producto)=>cp(a,b)||pctDescuento(b)-pctDescuento(a)},
+  // En "Mayor descuento" las promos van primero; "Consultar precio" al final
+  {label:'Mayor descuento', fn:(a:Producto,b:Producto)=>(Number(!!a.consultar_precio&&!promoDe(a))-Number(!!b.consultar_precio&&!promoDe(b)))||(Number(!!promoDe(b))-Number(!!promoDe(a)))||pctDescuento(b)-pctDescuento(a)},
   {label:'Vence primero',   fn:(a:Producto,b:Producto)=>a.fecha_venc.localeCompare(b.fecha_venc)},
   {label:'Menor precio',    fn:(a:Producto,b:Producto)=>cp(a,b)||a.precio_outlet-b.precio_outlet},
   {label:'Mayor precio',    fn:(a:Producto,b:Producto)=>cp(a,b)||b.precio_outlet-a.precio_outlet},
@@ -83,11 +88,11 @@ function Cart({ items, onClose, onRemove, onQty }: {
     if (items.length === 0 || !vendedor) return
     const v = VENDEDORES.find(v => v.nombre === vendedor)!
     const total = items.reduce((sum, i) => sum + subtotal(i), 0)
-    const hayConsultar = items.some(i => i.producto.consultar_precio)
+    const haySinPrecio = items.some(i => sinPrecio(i.producto))
     const lines = items.map(i =>
-      `• ${i.producto.nombre} - Lote: ${i.producto.lote} - Cant: ${i.qty} - ${i.producto.consultar_precio ? 'Consultar precio' : fmt(subtotal(i))}`
+      `• ${i.producto.nombre} - Lote: ${i.producto.lote} - Cant: ${i.qty} - ${sinPrecio(i.producto) ? precioTexto(i.producto) : fmt(subtotal(i))}`
     ).join('\n')
-    const msg = `¡Hola! Me gustaría consultar por las siguientes oportunidades:\n\n${lines}\n\nTotal aprox: ${fmt(total)} (+ IVA)${hayConsultar ? ' — sin incluir los de precio a consultar' : ''}\n\nAguardo respuesta. Saludos.`
+    const msg = `¡Hola! Me gustaría consultar por las siguientes oportunidades:\n\n${lines}\n\nTotal aprox: ${fmt(total)} (+ IVA)${haySinPrecio ? ' — sin incluir promos ni precios a consultar' : ''}\n\nAguardo respuesta. Saludos.`
     setSending(true)
     await logPedido(vendedor, items, total)
     setSending(false)
@@ -119,7 +124,7 @@ function Cart({ items, onClose, onRemove, onQty }: {
               </div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:12,fontWeight:600,lineHeight:1.3,color:'#1a1a1a',overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{p.nombre}</div>
-                <div style={{fontSize:11,color:'#f15922',fontWeight:700,marginTop:2}}>{p.consultar_precio ? 'Consultar precio' : fmt(p.precio_outlet)}</div>
+                <div style={{fontSize:11,color:promoDe(p)?C_PROMO:'#f15922',fontWeight:700,marginTop:2}}>{precioTexto(p)}</div>
               </div>
               <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
                 <button onClick={()=>onQty(p.id, qty-1)}
@@ -144,7 +149,7 @@ function Cart({ items, onClose, onRemove, onQty }: {
               </span>
             </div>
             <div style={{fontSize:10,color:'#b06030',fontWeight:700,textAlign:'right',marginBottom:12}}>
-              + IVA no incluido{items.some(i=>i.producto.consultar_precio)?' · sin los de precio a consultar':''}
+              + IVA no incluido{items.some(i=>sinPrecio(i.producto))?' · sin promos ni precios a consultar':''}
             </div>
 
             {/* Selector vendedor */}
@@ -199,18 +204,21 @@ function Modal({p, onClose, onAdd}:{p:Producto;onClose:()=>void;onAdd:(p:Product
           <div style={{fontSize:16,fontWeight:700,lineHeight:1.4,marginBottom:6,color:'#1a1a1a'}}>{p.nombre}</div>
           <div style={{fontSize:12,color:'#aaa',marginBottom:18}}>{p.categoria}</div>
           <div style={{background:'linear-gradient(135deg,#fff4f0,#fff8f5)',border:'2px solid #ffd0b8',borderLeft:'5px solid #f15922',borderRadius:12,padding:'16px 18px',marginBottom:16}}>
-            {p.consultar_precio ? (
+            {promoDe(p) ? (<>
+              <div style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:1.2,color:C_PROMO,marginBottom:2}}>Promo</div>
+              <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:56,fontWeight:900,color:C_PROMO,lineHeight:1,letterSpacing:-1,marginBottom:6}}>{promoDe(p)}</div>
+              <div style={{fontSize:13,color:C_PROMO,fontWeight:700}}>🎁 {detallePromo(promoDe(p)!)}</div>
+            </>) : p.consultar_precio ? (
               <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:34,fontWeight:900,color:'#f15922',lineHeight:1.1,marginBottom:8}}>Consultar precio</div>
             ) : (<>
             {desc && <div style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:1.2,color:'#f15922',marginBottom:4}}>Precio Outlet</div>}
             <div style={{display:'flex',alignItems:'baseline',gap:10,marginBottom:6}}>
               <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:44,fontWeight:900,color:'#f15922',lineHeight:1,letterSpacing:-1}}>{fmt(p.precio_outlet)}</div>
-              {(p.promo || desc) && <div style={{background:p.promo?'#16a34a':'#e53935',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontWeight:900,fontSize:16,padding:'3px 8px',borderRadius:5}}>{p.promo ? p.promo : `−${d}%`}</div>}
+              {desc && <div style={{background:'#e53935',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontWeight:900,fontSize:16,padding:'3px 8px',borderRadius:5}}>−{d}%</div>}
             </div>
             {desc && <div style={{fontSize:13,color:'#aaa',marginBottom:6}}>Precio público: <s>{fmt(p.precio_publico)}</s></div>}
             </>)}
-            {p.promo && <div style={{fontSize:12,color:'#16a34a',fontWeight:700,marginBottom:6}}>🎁 Promo {p.promo}: comprás 1 y te llevás otra unidad sin cargo</div>}
-            <div style={{fontSize:11,color:'#b06030',fontWeight:700,background:'#fff0e6',padding:'4px 8px',borderRadius:5,display:'inline-block'}}>+ IVA no incluido</div>
+            {!promoDe(p) && <div style={{fontSize:11,color:'#b06030',fontWeight:700,background:'#fff0e6',padding:'4px 8px',borderRadius:5,display:'inline-block'}}>+ IVA no incluido</div>}
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:16}}>
             {[{l:'Vencimiento',v:fmtDate(p.fecha_venc),r:p.es_urgente},{l:'Stock',v:`${p.stock} u.`,r:false},{l:'Lote',v:p.lote,r:false}].map(({l,v,r})=>(
@@ -254,13 +262,17 @@ function CardGrid({p,onClick,onAdd,inCart}:{p:Producto;onClick:()=>void;onAdd:(p
           <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:10,fontWeight:700,color:'#ccc',letterSpacing:1.2,textTransform:'uppercase'}}>{p.codigo}</div>
           <div style={{fontSize:12,fontWeight:600,lineHeight:1.4,color:'#1a1a1a',display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',overflow:'hidden',minHeight:50}}>{p.nombre}</div>
           <div style={{marginTop:6,paddingTop:6,borderTop:'1px solid #f0f0ee'}}>
-            {p.consultar_precio ? (
+            {promoDe(p) ? (<>
+              <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:C_PROMO,marginBottom:2}}>Promo</div>
+              <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:34,fontWeight:900,color:C_PROMO,lineHeight:1,letterSpacing:-0.5}}>{promoDe(p)}</div>
+              <div style={{fontSize:10,color:C_PROMO,fontWeight:700,marginTop:3,lineHeight:1.3}}>{detallePromo(promoDe(p)!)}</div>
+            </>) : p.consultar_precio ? (
               <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:20,fontWeight:900,color:'#f15922',lineHeight:1.1,padding:'6px 0'}}>Consultar precio</div>
             ) : (<>
             {desc && <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'#f15922',marginBottom:2}}>Precio Outlet</div>}
-            <div style={{display:'flex',alignItems:'baseline',gap:6}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',rowGap:3}}>
               <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:24,fontWeight:900,color:'#f15922',lineHeight:1,letterSpacing:-0.5}}>{fmt(p.precio_outlet)}</div>
-              {(p.promo || desc) && <div style={{background:p.promo?'#16a34a':(d>=60?'#e53935':d>=40?'#f15922':'#555'),color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontSize:14,fontWeight:900,padding:'2px 6px',borderRadius:4,lineHeight:1}}>{p.promo ? p.promo : `−${d}%`}</div>}
+              {desc && <div style={{background:d>=60?'#e53935':d>=40?'#f15922':'#555',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontSize:14,fontWeight:900,padding:'2px 6px',borderRadius:4,lineHeight:1}}>−{d}%</div>}
             </div>
             {desc && <div style={{fontSize:11,color:'#ccc',textDecoration:'line-through',marginTop:2}}>{fmt(p.precio_publico)}</div>}
             <div style={{fontSize:9,color:'#b06030',fontWeight:700,marginTop:2}}>+ IVA no incluido</div>
@@ -303,14 +315,17 @@ function CardList({p,onClick,onAdd,inCart}:{p:Producto;onClick:()=>void;onAdd:(p
       </div>
       <div style={{textAlign:'right',flexShrink:0,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6}}>
         <div>
-          {p.consultar_precio ? (
+          {promoDe(p) ? (<>
+            <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:C_PROMO,marginBottom:2}}>Promo</div>
+            <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:28,fontWeight:900,color:C_PROMO,lineHeight:1}}>{promoDe(p)}</div>
+          </>) : p.consultar_precio ? (
             <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:17,fontWeight:900,color:'#f15922',lineHeight:1.1}}>Consultar precio</div>
           ) : (<>
           {desc && <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'#f15922',marginBottom:2}}>Outlet</div>}
           <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:20,fontWeight:900,color:'#f15922',lineHeight:1}}>{fmt(p.precio_outlet)}</div>
-          {(p.promo || desc) && <div style={{display:'flex',alignItems:'center',gap:5,justifyContent:'flex-end',marginTop:2}}>
-            {desc && <span style={{fontSize:10,color:'#ccc',textDecoration:'line-through'}}>{fmt(p.precio_publico)}</span>}
-            <span style={{background:p.promo?'#16a34a':'#e53935',color:'#fff',fontSize:10,fontWeight:800,padding:'1px 5px',borderRadius:3,fontFamily:'Barlow Condensed,sans-serif'}}>{p.promo ? p.promo : `−${d}%`}</span>
+          {desc && <div style={{display:'flex',alignItems:'center',gap:5,justifyContent:'flex-end',marginTop:2}}>
+            <span style={{fontSize:10,color:'#ccc',textDecoration:'line-through'}}>{fmt(p.precio_publico)}</span>
+            <span style={{background:'#e53935',color:'#fff',fontSize:10,fontWeight:800,padding:'1px 5px',borderRadius:3,fontFamily:'Barlow Condensed,sans-serif'}}>−{d}%</span>
           </div>}
           <div style={{fontSize:9,color:'#b06030',fontWeight:700,marginTop:2}}>+ IVA no incluido</div>
           </>)}
