@@ -222,7 +222,7 @@ function Modal({p, onClose, onAdd}:{p:Producto;onClose:()=>void;onAdd:(p:Product
               <div style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:44,fontWeight:900,color:'#f15922',lineHeight:1,letterSpacing:-1}}>{fmt(p.precio_outlet)}</div>
               {desc && <div style={{background:'#e53935',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontWeight:900,fontSize:16,padding:'3px 8px',borderRadius:5}}>−{d}%</div>}
             </div>
-            {desc && <div style={{fontSize:13,color:'#aaa',marginBottom:6}}>Precio público: <s>{fmt(p.precio_publico)}</s></div>}
+            {desc && <div style={{fontSize:13,color:'#aaa',marginBottom:6}}>Precio lista: <s>{fmt(p.precio_publico)}</s></div>}
             </>)}
             {!sinPrecio(p) && <div style={{fontSize:11,color:'#b06030',fontWeight:700,background:'#fff0e6',padding:'4px 8px',borderRadius:5,display:'inline-block'}}>+ IVA no incluido</div>}
           </div>

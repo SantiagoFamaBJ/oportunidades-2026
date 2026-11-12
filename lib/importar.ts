@@ -106,7 +106,7 @@ export function armarPlan(rows: unknown[][], existentes: Producto[]): PlanImport
       activo: true,
     })
   }
-  if (sinPublico) avisos.push(`${sinPublico} producto(s) sin precio público: se muestran con un solo precio`)
+  if (sinPublico) avisos.push(`${sinPublico} producto(s) sin precio de lista: se muestran con un solo precio`)
 
   const lista = Array.from(filas.values())
   const ids = new Set(lista.map(f => f.id))

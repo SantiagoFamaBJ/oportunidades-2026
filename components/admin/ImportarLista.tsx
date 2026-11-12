@@ -71,7 +71,7 @@ export default function ImportarLista({ productos, onDone }: { productos: Produc
           <div style={{ maxHeight: 380, overflowY: 'auto', border: '1px solid #eee', borderRadius: 8 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead><tr style={{ background: '#f7f7f5', position: 'sticky', top: 0 }}>
-                {['Código', 'Nombre', 'Lote', 'Vence', 'Stock', 'Outlet', 'Público'].map(h => <th key={h} style={th}>{h}</th>)}
+                {['Código', 'Nombre', 'Lote', 'Vence', 'Stock', 'Outlet', 'Lista 1'].map(h => <th key={h} style={th}>{h}</th>)}
               </tr></thead>
               <tbody>
                 {lista.length === 0 && <tr><td colSpan={7} style={{ ...td, textAlign: 'center', color: '#bbb', padding: 24 }}>Nada para mostrar</td></tr>}
