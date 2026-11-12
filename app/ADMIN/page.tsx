@@ -17,7 +17,7 @@ export default function AdminPage(): JSX.Element {
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<Producto | null>(null)
   const [saveMsg, setSaveMsg] = useState('')
-  const [filter, setFilter] = useState<'all'|'urgente'|'ocultos'|'sin_imagen'>('all')
+  const [filter, setFilter] = useState<'all'|'visibles'|'urgente'|'ocultos'|'sin_imagen'>('visibles')
   const [catFilter, setCatFilter] = useState('all')
   const [uploading, setUploading] = useState(false)
   const [tab, setTab] = useState<'productos'|'importar'|'fotos'|'pedidos'>('productos')
@@ -173,9 +173,11 @@ export default function AdminPage(): JSX.Element {
   }
 
   const filtered = productos.filter(p => {
+    if (filter === 'visibles' && !p.activo) return false
     if (filter === 'urgente' && !p.es_urgente) return false
     if (filter === 'ocultos' && p.activo) return false
-    if (filter === 'sin_imagen' && fotos[p.codigo]) return false
+    // "Sin foto" = productos visibles sin foto (igual que el contador del encabezado)
+    if (filter === 'sin_imagen' && (fotos[p.codigo] || !p.activo)) return false
     if (catFilter !== 'all' && p.categoria !== catFilter) return false
     if (search) {
       const q = search.toLowerCase()
@@ -269,9 +271,9 @@ export default function AdminPage(): JSX.Element {
       {tab === 'productos' && (
         <div style={s.controls}>
           <input style={s.search} type="search" placeholder="Buscar…" value={search} onChange={e=>setSearch(e.target.value)}/>
-          {(['all','urgente','sin_imagen','ocultos'] as const).map(f=>(
+          {(['visibles','all','urgente','sin_imagen','ocultos'] as const).map(f=>(
             <button key={f} style={{...s.fBtn,...(filter===f?s.fBtnActive:{})}} onClick={()=>setFilter(f)}>
-              {f==='all'?'Todos':f==='urgente'?'🔴 Urgentes':f==='sin_imagen'?'📷 Sin foto':'🚫 Ocultos'}
+              {f==='visibles'?'👁 Visibles':f==='all'?'Todos':f==='urgente'?'🔴 Urgentes':f==='sin_imagen'?'📷 Sin foto':'🚫 Ocultos'}
             </button>
           ))}
           <div style={{width:1,height:24,background:'#e4e4e2',flexShrink:0}}/>
