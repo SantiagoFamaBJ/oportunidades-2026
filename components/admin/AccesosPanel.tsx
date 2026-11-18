@@ -135,19 +135,20 @@ export default function AccesosPanel({ onSesionVencida }: { onSesionVencida: () 
 
   async function guardarEdicion() {
     if (!editando) return
-    const body = { ...(editando.id ? { id: editando.id } : {}), nombre: editando.nombre, emails: editando.emails, cuit: editando.cuit.trim() || null }
+    if (!editando.cuit.trim()) { aviso('❌ Falta el CUIT'); return }
+    const body = { ...(editando.id ? { id: editando.id } : {}), nombre: editando.nombre, cuit: editando.cuit.trim() }
     if (await guardar(body, editando.id ? '✅ Cambios guardados' : '✅ Distribuidor agregado')) setEditando(null)
   }
 
   async function borrar(c: Cliente) {
-    if (!confirm(`¿Borrar a ${c.nombre || c.emails[0] || fmtCuit(c.cuit)}? Pierde el acceso. Su historial queda registrado.`)) return
+    if (!confirm(`¿Borrar a ${c.nombre || fmtCuit(c.cuit)}? Pierde el acceso. Su historial queda registrado.`)) return
     const res = await fetch('/api/admin/clientes', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: c.id }) })
     if (res.status === 401) { onSesionVencida(); return }
     aviso(res.ok ? '🗑 Borrado' : '❌ No se pudo borrar'); await cargar()
   }
 
   function descargarModelo() {
-    const csv = 'Razón social;Mail;CUIT\nOdontología Ejemplo SRL;compras@ejemplo.com.ar;30-71234567-8\nDr. Juan Pérez;juanperez@gmail.com; 20-12345678-9\n'
+    const csv = 'Razón social;CUIT\nCIRUGIA LITORAL S.R.L;30-71005390-8\nMICELLI FERNANDO ANDRES;23246651949\n'
     const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }))
     const a = document.createElement('a'); a.href = url; a.download = 'modelo-distribuidores.csv'; a.click(); URL.revokeObjectURL(url)
   }
@@ -160,7 +161,7 @@ export default function AccesosPanel({ onSesionVencida }: { onSesionVencida: () 
     <div style={{ padding: '20px 28px' }}>
       <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', marginBottom: 4 }}>Accesos de distribuidores</div>
       <div style={{ fontSize: 12, color: '#888', marginBottom: 14 }}>
-        Con el ingreso activado, solo los distribuidores de esta lista pueden entrar a la web, con su mail o su CUIT. Vos, con la sesión del admin abierta, también la podés ver.
+        Con el ingreso activado, solo los distribuidores de esta lista pueden entrar a la web, con su CUIT (con o sin guiones). Vos, con la sesión del admin abierta, también la podés ver.
       </div>
 
       {/* Interruptor */}
@@ -170,7 +171,7 @@ export default function AccesosPanel({ onSesionVencida }: { onSesionVencida: () 
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>{restringido ? 'La web pide ingreso' : 'La web está abierta para cualquiera con el link'}</div>
             <div style={{ fontSize: 12, color: '#777', marginTop: 2 }}>
-              {restringido ? 'Solo entran los distribuidores habilitados, con su mail o CUIT. Cada ingreso queda registrado.'
+              {restringido ? 'Solo entran los distribuidores habilitados, con su CUIT. Cada ingreso queda registrado.'
                 : 'Cargá la lista de distribuidores y después activá el ingreso.'}
             </div>
           </div>
@@ -208,7 +209,7 @@ export default function AccesosPanel({ onSesionVencida }: { onSesionVencida: () 
       {/* ── Distribuidores ── */}
       {!cargando && vista === 'clientes' && (<>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-          <input style={{ ...inp, width: 280 }} placeholder="Buscar por nombre, mail o CUIT…" value={buscar} onChange={e => setBuscar(e.target.value)} />
+          <input style={{ ...inp, width: 280 }} placeholder="Buscar por razón social o CUIT…" value={buscar} onChange={e => setBuscar(e.target.value)} />
           <label style={{ fontSize: 12, color: '#555', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
             <input type="checkbox" checked={soloActivos} onChange={e => setSoloActivos(e.target.checked)} /> Solo con acceso
           </label>
@@ -216,8 +217,8 @@ export default function AccesosPanel({ onSesionVencida }: { onSesionVencida: () 
         </div>
 
         {editando && (
-          <div style={{ ...card, marginBottom: 12, display: 'grid', gridTemplateColumns: '1.2fr 1.6fr 1fr auto auto', gap: 10, alignItems: 'end' }}>
-            {([['Nombre / razón social', 'nombre', 'Ej: Odontología Sur SRL'], ['Mails (separados por coma)', 'emails', 'compras@…, admin@…'], ['CUIT', 'cuit', '30-71234567-8']] as const).map(([lab, k, ph]) => (
+          <div style={{ ...card, marginBottom: 12, display: 'grid', gridTemplateColumns: '2fr 1fr auto auto', gap: 10, alignItems: 'end' }}>
+            {([['Razón social', 'nombre', 'Ej: Cirugía Litoral S.R.L.'], ['CUIT', 'cuit', '30-71005390-8']] as const).map(([lab, k, ph]) => (
               <div key={k}>
                 <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#888', marginBottom: 5 }}>{lab}</div>
                 <input style={inp} placeholder={ph} value={editando[k]} onChange={e => setEditando({ ...editando, [k]: e.target.value })} onKeyDown={e => e.key === 'Enter' && guardarEdicion()} />
@@ -231,14 +232,13 @@ export default function AccesosPanel({ onSesionVencida }: { onSesionVencida: () 
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
             <thead><tr>
-              <th style={th}>Distribuidor</th><th style={th}>Mails</th><th style={th}>CUIT</th>
+              <th style={th}>Razón social</th><th style={th}>CUIT</th>
               <th style={th}>Último ingreso</th><th style={th}>Ingresos</th><th style={th}>Acceso</th><th style={th}></th>
             </tr></thead>
             <tbody>
               {lista.map(c => (
                 <tr key={c.id} style={{ opacity: c.activo ? 1 : 0.55 }}>
                   <td style={{ ...td, fontWeight: 700, color: '#1a1a1a' }}>{c.nombre || <span style={{ color: '#bbb', fontWeight: 400 }}>Sin nombre</span>}</td>
-                  <td style={td}>{c.emails.length ? c.emails.map(e => <div key={e}>{e}</div>) : <span style={{ color: '#bbb' }}>—</span>}</td>
                   <td style={{ ...td, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{fmtCuit(c.cuit) || <span style={{ color: '#bbb' }}>—</span>}</td>
                   <td style={{ ...td, whiteSpace: 'nowrap', color: c.ultimo_acceso ? '#1a1a1a' : '#bbb' }}>{c.ultimo_acceso ? fmtFecha(c.ultimo_acceso) : 'Nunca'}</td>
                   <td style={td}>{c.accesos}</td>
@@ -249,12 +249,12 @@ export default function AccesosPanel({ onSesionVencida }: { onSesionVencida: () 
                     </button>
                   </td>
                   <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                    <button style={btn} onClick={() => setEditando({ id: c.id, nombre: c.nombre || '', emails: c.emails.join(', '), cuit: fmtCuit(c.cuit) })}>Editar</button>{' '}
+                    <button style={btn} onClick={() => setEditando({ id: c.id, nombre: c.nombre || '', emails: '', cuit: fmtCuit(c.cuit) })}>Editar</button>{' '}
                     <button style={{ ...btn, color: '#c62828' }} onClick={() => borrar(c)}>Borrar</button>
                   </td>
                 </tr>
               ))}
-              {!lista.length && <tr><td colSpan={7} style={{ ...td, textAlign: 'center', color: '#bbb', padding: 36 }}>
+              {!lista.length && <tr><td colSpan={6} style={{ ...td, textAlign: 'center', color: '#bbb', padding: 36 }}>
                 {clientes.length ? 'No hay resultados' : 'Todavía no cargaste distribuidores. Subí el Excel desde "Subir Excel".'}
               </td></tr>}
             </tbody>
@@ -269,7 +269,7 @@ export default function AccesosPanel({ onSesionVencida }: { onSesionVencida: () 
             Últimos {accesos.length} movimientos. "Volvió" = entró de nuevo con la sesión guardada (se anota como máximo cada 30 minutos). <button style={{ ...btn, marginLeft: 8 }} onClick={cargar}>🔄 Actualizar</button>
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-            <thead><tr><th style={th}>Fecha</th><th style={th}>Distribuidor</th><th style={th}>Con qué entró</th><th style={th}>Resultado</th></tr></thead>
+            <thead><tr><th style={th}>Fecha</th><th style={th}>Distribuidor</th><th style={th}>CUIT ingresado</th><th style={th}>Resultado</th></tr></thead>
             <tbody>
               {accesos.map(a => (
                 <tr key={a.id}>
@@ -290,8 +290,8 @@ export default function AccesosPanel({ onSesionVencida }: { onSesionVencida: () 
         <div style={{ maxWidth: 760 }}>
           <div style={{ ...card, marginBottom: 14 }}>
             <div style={{ fontSize: 13, color: '#444', lineHeight: 1.6 }}>
-              Subí un Excel (.xlsx) o CSV con una fila por distribuidor y estas columnas (los títulos pueden variar un poco):
-              <b> Razón social</b>, <b>Mail</b> y/o <b>CUIT</b>. Si un distribuidor tiene varios mails, ponelos en la misma celda separados por coma, o en varias columnas "Mail".
+              Subí un Excel (.xlsx) o CSV con una fila por distribuidor y dos columnas con título: <b>Razón social</b> y <b>CUIT</b>.
+              El CUIT puede estar con o sin guiones.
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
               <input ref={fileRef} type="file" accept=".xlsx,.csv" style={{ display: 'none' }} onChange={elegirArchivo} />
@@ -305,7 +305,7 @@ export default function AccesosPanel({ onSesionVencida }: { onSesionVencida: () 
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>{archivo}</div>
               <div style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>Columnas detectadas: {lectura.columnas || '—'}</div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-                {[['Nuevos', previa.nuevos, '#2e7d32'], ['Ya cargados (se actualizan)', previa.actualizados, '#3554a5'], ['Filas sin mail ni CUIT (se ignoran)', lectura.invalidas, '#888']].map(([t, n, c]) => (
+                {[['Nuevos', previa.nuevos, '#2e7d32'], ['Ya cargados (se actualizan)', previa.actualizados, '#3554a5'], ['Filas sin CUIT válido (se ignoran)', lectura.invalidas, '#888']].map(([t, n, c]) => (
                   <div key={t as string} style={{ background: '#f7f7f5', borderRadius: 8, padding: '8px 12px', fontSize: 12 }}>
                     <b style={{ color: c as string, fontSize: 16 }}>{n as number}</b> {t}
                   </div>
@@ -319,7 +319,7 @@ export default function AccesosPanel({ onSesionVencida }: { onSesionVencida: () 
               </label>
               {desactivarFaltantes && previa.salen.length > 0 && (
                 <div style={{ fontSize: 12, color: '#c62828', background: '#fff5f5', borderRadius: 6, padding: '8px 10px', marginBottom: 6, maxHeight: 120, overflowY: 'auto' }}>
-                  {previa.salen.map(c => c.nombre || c.emails[0] || fmtCuit(c.cuit)).join(' · ')}
+                  {previa.salen.map(c => c.nombre || fmtCuit(c.cuit)).join(' · ')}
                 </div>
               )}
 
@@ -330,7 +330,6 @@ export default function AccesosPanel({ onSesionVencida }: { onSesionVencida: () 
                     {lectura.filas.slice(0, 50).map((f, i) => (
                       <tr key={i}>
                         <td style={td}>{f.nombre || <span style={{ color: '#bbb' }}>—</span>}</td>
-                        <td style={td}>{f.emails.join(', ') || <span style={{ color: '#bbb' }}>—</span>}</td>
                         <td style={{ ...td, fontFamily: 'monospace' }}>{fmtCuit(f.cuit) || <span style={{ color: '#bbb' }}>—</span>}</td>
                       </tr>
                     ))}

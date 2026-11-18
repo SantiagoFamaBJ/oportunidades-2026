@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { LOGO_B64 } from '@/lib/logo'
 
-/** Pantalla de ingreso: el distribuidor entra con su mail o CUIT. */
+/** Pantalla de ingreso: el distribuidor entra con su CUIT (con o sin guiones). */
 export default function IngresoDistribuidor({ onIngreso }: { onIngreso: () => void }) {
   const [valor, setValor] = useState('')
   const [error, setError] = useState('')
@@ -45,10 +45,10 @@ export default function IngresoDistribuidor({ onIngreso }: { onIngreso: () => vo
       <form className="ing-card" onSubmit={ingresar}>
         <img src={LOGO_B64} alt="Dental Medrano" className="ing-logo" />
         <h1 className="ing-title">Oportunidades<br />mayoristas 2026</h1>
-        <p className="ing-sub">Acceso exclusivo para distribuidores.<br />Ingresá con el mail o el CUIT registrado en Dental Medrano.</p>
+        <p className="ing-sub">Acceso exclusivo para distribuidores.<br />Ingresá con el CUIT de tu empresa.</p>
         <input
           className="ing-input" value={valor} onChange={e => setValor(e.target.value)}
-          placeholder="Mail o CUIT" autoFocus autoComplete="email" inputMode="email" aria-label="Mail o CUIT"
+          placeholder="CUIT (ej: 30-71005390-8)" autoFocus autoComplete="off" inputMode="numeric" aria-label="CUIT"
         />
         <button className="ing-btn" type="submit" disabled={enviando || !valor.trim()}>
           {enviando ? 'Verificando…' : 'Ingresar'}

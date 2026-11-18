@@ -3,21 +3,19 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { interpretarIdentificador } from '@/lib/clientes'
 import { CLIENTE_COOKIE, crearTokenCliente, opcionesCookieCliente, registrarAcceso } from '@/lib/clienteSession'
 
-const NO_ENCONTRADO = 'No encontramos ese mail o CUIT en la lista de distribuidores. Consultá con tu vendedor.'
+const NO_ENCONTRADO = 'Ese CUIT no está habilitado. Consultá con tu vendedor.'
 
 export async function POST(req: Request) {
   let raw = ''
   try { raw = String((await req.json()).identificador || '').slice(0, 200) } catch {}
+  // Solo CUIT: se acepta con o sin guiones, espacios o puntos
   const ident = interpretarIdentificador(raw)
-  if (!ident) {
-    return NextResponse.json({ ok: false, error: 'Escribí tu mail o tu CUIT (11 números).' }, { status: 400 })
+  if (!ident || ident.tipo !== 'cuit') {
+    return NextResponse.json({ ok: false, error: 'Escribí tu CUIT: son 11 números, con o sin guiones.' }, { status: 400 })
   }
 
   const db = supabaseAdmin()
-  const q = db.from('clientes_oportunidades').select('id, nombre, activo, emails, cuit').limit(1)
-  const { data } = ident.tipo === 'email'
-    ? await q.contains('emails', [ident.valor])
-    : await q.eq('cuit', ident.valor)
+  const { data } = await db.from('clientes_oportunidades').select('id, nombre, activo, emails, cuit').eq('cuit', ident.valor).limit(1)
   const cliente = data?.[0]
 
   if (!cliente || !cliente.activo) {

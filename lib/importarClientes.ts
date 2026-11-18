@@ -41,7 +41,8 @@ export async function leerClientes(file: File): Promise<LecturaClientes> {
       else if (colNombre < 0 && vals.some(v => typeof v === 'string' && /[a-z]{3}/i.test(v))) colNombre = i
     }
   }
-  if (!colsMail.length && colCuit < 0) throw new Error('No encontré columnas de Mail ni de CUIT. Poné esos títulos en la primera fila.')
+  if (colCuit < 0) throw new Error('No encontré la columna CUIT. Poné los títulos "Razón social" y "CUIT" en la primera fila.')
+  colsMail = [] // el ingreso es solo con CUIT
 
   const filas: FilaCliente[] = []
   let invalidas = 0
@@ -49,7 +50,7 @@ export async function leerClientes(file: File): Promise<LecturaClientes> {
     if (!r.some(c => c !== null && String(c).trim() !== '')) continue
     const emails = Array.from(new Set(colsMail.flatMap(i => extraerEmails(r[i]))))
     const cuit = colCuit >= 0 ? normalizarCuit(r[colCuit]) : null
-    if (!emails.length && !cuit) { invalidas++; continue }
+    if (!cuit) { invalidas++; continue }
     const n = colNombre >= 0 ? String(r[colNombre] ?? '').trim() : ''
     filas.push({ nombre: n || null, emails, cuit })
   }
