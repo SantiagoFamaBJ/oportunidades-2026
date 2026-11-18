@@ -16,18 +16,12 @@ const VENDEDORES_RESPALDO: Vendedor[] = [
   { nombre: 'Hugo Vélez',        wa: '5493516974211' },
 ]
 
-const SUPABASE_URL = 'https://larqxmgyutqiktsforgz.supabase.co'
-const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 async function logPedido(vendedor: string, items: CartItem[], total: number) {
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/pedidos_oportunidades`, {
+    await fetch('/api/pedido', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_ANON,
-        'Authorization': `Bearer ${SUPABASE_ANON}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         vendedor,
         items: items.map(i => ({
@@ -372,7 +366,7 @@ function CardList({p,onClick,onAdd,inCart}:{p:Producto;onClick:()=>void;onAdd:(p
 }
 
 /* ── MAIN ── */
-export default function LandingClient({productos}:{productos:Producto[]}) {
+export default function LandingClient({productos,cliente,onSalir}:{productos:Producto[];cliente?:{nombre:string;esAdmin:boolean}|null;onSalir?:()=>void}) {
   const [filterUrg,setFilterUrg] = useState(false)
   const [cat,setCat] = useState('Todas')
   const [sortIdx,setSortIdx] = useState(1)
@@ -424,7 +418,10 @@ export default function LandingClient({productos}:{productos:Producto[]}) {
       ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#ddd;border-radius:3px}
       .dm-header{background:#fff;border-bottom:3px solid #f15922;padding:14px 32px;display:flex;align-items:center;justify-content:space-between;gap:20px;box-shadow:0 2px 20px rgba(0,0,0,0.07)}
       .dm-logo{height:46px;width:auto;flex-shrink:0}
-      .dm-title{font-family:'Barlow Condensed',sans-serif;font-size:clamp(22px,4vw,34px);font-weight:900;color:#f15922;letter-spacing:3px;text-transform:uppercase;line-height:1;text-align:center;flex:1}
+      .dm-title{font-family:'Barlow Condensed',sans-serif;font-size:clamp(22px,3.6vw,34px);font-weight:900;color:#f15922;letter-spacing:3px;text-transform:uppercase;line-height:1;text-align:center;flex:1}
+      .dm-user{display:flex;align-items:center;gap:8px;flex-shrink:0;max-width:220px}
+      .dm-user-name{font-size:12px;color:#888;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .dm-user-out{padding:5px 10px;border:1.5px solid #e4e4e2;border-radius:6px;background:#fff;color:#888;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0}
       .dm-controls{background:#fff;border-bottom:1px solid #e4e4e2;padding:8px 16px;display:flex;flex-direction:column;gap:8px}
       .dm-controls-row{display:flex;align-items:center;gap:8px;width:100%}
       .dm-search{padding:7px 12px;border:1.5px solid #e4e4e2;border-radius:8px;font-size:13px;flex:1;min-width:0;background:#f7f7f5;color:#1a1a1a;outline:none}
@@ -434,14 +431,19 @@ export default function LandingClient({productos}:{productos:Producto[]}) {
       @media(max-width:600px){
         .dm-header{flex-direction:column;align-items:center;padding:14px 16px;gap:8px}
         .dm-logo{height:38px}
-        .dm-title{font-size:28px;letter-spacing:2px}
+        .dm-title{font-size:22px;letter-spacing:1.5px}
+        .dm-user{max-width:100%}
         .dm-controls{padding:8px 12px}
       }
     `}</style>
 
     <header className="dm-header">
       <img src={LOGO_B64} alt="Dental Medrano" className="dm-logo"/>
-      <div className="dm-title">Oportunidades 2026</div>
+      <div className="dm-title">Oportunidades mayoristas 2026</div>
+      {cliente && <div className="dm-user">
+        <span className="dm-user-name" title={cliente.nombre}>{cliente.esAdmin ? '👁 Vista admin' : cliente.nombre}</span>
+        {onSalir && !cliente.esAdmin && <button className="dm-user-out" onClick={onSalir}>Salir</button>}
+      </div>}
     </header>
 
     <div className="dm-controls">

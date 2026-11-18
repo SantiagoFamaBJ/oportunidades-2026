@@ -6,6 +6,7 @@ import { adminPost } from '@/lib/adminApi'
 import ImportarLista from '@/components/admin/ImportarLista'
 import FotosPanel from '@/components/admin/FotosPanel'
 import VendedoresPanel from '@/components/admin/VendedoresPanel'
+import AccesosPanel from '@/components/admin/AccesosPanel'
 function fmt(n: number) { return '$ ' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtDate(iso: string) { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
 
@@ -21,7 +22,7 @@ export default function AdminPage(): JSX.Element {
   const [filter, setFilter] = useState<'all'|'visibles'|'urgente'|'ocultos'|'sin_imagen'>('visibles')
   const [catFilter, setCatFilter] = useState('all')
   const [uploading, setUploading] = useState(false)
-  const [tab, setTab] = useState<'productos'|'importar'|'fotos'|'pedidos'|'vendedores'>('productos')
+  const [tab, setTab] = useState<'productos'|'importar'|'fotos'|'pedidos'|'vendedores'|'accesos'>('productos')
   const [fotos, setFotos] = useState<Record<string,string>>({})
   const [pedidos, setPedidos] = useState<any[]>([])
   const [loadingPedidos, setLoadingPedidos] = useState(false)
@@ -59,8 +60,10 @@ export default function AdminPage(): JSX.Element {
 
   async function loadProducts() {
     setLoading(true)
-    const { data } = await supabase.from('productos_oportunidades').select('*')
-      .order('es_urgente', { ascending: false }).order('fecha_venc', { ascending: true })
+    const res = await fetch('/api/admin/productos', { cache: 'no-store' })
+    if (res.status === 401) { setAuth(false); setLoading(false); return }
+    const json = res.ok ? await res.json() : { data: [] }
+    const data = json.data as Producto[] | null
     setProductos(data || [])
     // Extraer categorías únicas
     const uniqueCats = Array.from(new Set((data || []).map((p: Producto) => p.categoria).filter(Boolean))).sort() as string[]
@@ -194,7 +197,7 @@ export default function AdminPage(): JSX.Element {
       <div style={s.loginBox}>
         <div style={s.loginLogo}>DM</div>
         <div style={s.loginTitle}>Admin Panel</div>
-        <div style={s.loginSub}>Oportunidades 2026</div>
+        <div style={s.loginSub}>Oportunidades mayoristas 2026</div>
         <input style={{...s.loginInput,...(passErr?s.loginInputErr:{})}} type="password" placeholder="Contraseña"
           value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&login()} autoFocus/>
         {passErr && <div style={s.errMsg}>Contraseña incorrecta</div>}
@@ -208,7 +211,7 @@ export default function AdminPage(): JSX.Element {
       {/* Header */}
       <div style={s.header}>
         <div style={s.headerLeft}>
-          <span style={s.headerTitle}>Admin · Oportunidades 2026</span>
+          <span style={s.headerTitle}>Admin · Oportunidades mayoristas 2026</span>
           <span style={s.headerCount}>{productos.length} productos</span>
           {sinImagen > 0 && <span style={{...s.headerWarn,cursor:'pointer'}} onClick={()=>setTab('fotos')} title="Ver cuáles faltan">⚠️ Faltan {sinImagen} foto{sinImagen!==1?'s':''}</span>}
         </div>
@@ -243,6 +246,7 @@ export default function AdminPage(): JSX.Element {
           <button style={{...s.fBtn,...(tab==='fotos'?s.fBtnActive:{})}} onClick={()=>setTab('fotos')}>📷 Fotos{sinImagen>0?` (${sinImagen})`:''}</button>
           <button style={{...s.fBtn,...(tab==='pedidos'?s.fBtnActive:{})}} onClick={()=>setTab('pedidos')}>📋 Pedidos</button>
           <button style={{...s.fBtn,...(tab==='vendedores'?s.fBtnActive:{})}} onClick={()=>setTab('vendedores')}>👥 Vendedores</button>
+          <button style={{...s.fBtn,...(tab==='accesos'?s.fBtnActive:{})}} onClick={()=>setTab('accesos')}>🔐 Accesos</button>
           <button style={{...s.fBtn,...(showCats?s.fBtnActive:{})}} onClick={()=>setShowCats(v=>!v)}>🏷 Categorías</button>
           <a href="/" target="_blank" style={s.viewLink}>Ver landing →</a>
           <button style={s.logoutBtn} onClick={logout}>Salir</button>
@@ -353,6 +357,7 @@ export default function AdminPage(): JSX.Element {
       {tab === 'importar' && <ImportarLista productos={productos} onDone={loadProducts}/>}
       {tab === 'fotos' && <FotosPanel productos={productos} fotos={fotos} onChange={loadFotos}/>}
       {tab === 'vendedores' && <VendedoresPanel onSesionVencida={()=>setAuth(false)}/>}
+      {tab === 'accesos' && <AccesosPanel onSesionVencida={()=>setAuth(false)}/>}
 
       {/* Tab: Pedidos */}
       {tab === 'pedidos' && (
@@ -376,6 +381,7 @@ export default function AdminPage(): JSX.Element {
                     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
                       <div style={{display:'flex',alignItems:'center',gap:10}}>
                         <span style={{background:'#f15922',color:'#fff',fontFamily:'Barlow Condensed,sans-serif',fontWeight:800,fontSize:12,padding:'2px 10px',borderRadius:4}}>{p.vendedor}</span>
+                        {p.cliente_nombre && <span style={{fontSize:13,fontWeight:700,color:'#1a1a1a'}}>{p.cliente_nombre}</span>}
                         <span style={{fontSize:12,color:'#888'}}>{fechaStr} · {horaStr}</span>
                       </div>
                       <span style={{fontFamily:'Barlow Condensed,sans-serif',fontSize:18,fontWeight:900,color:'#f15922'}}>{fmt(p.total)}</span>

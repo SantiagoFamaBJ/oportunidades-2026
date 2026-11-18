@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Oportunidades 2026 — Dental Medrano',
+  title: 'Oportunidades mayoristas 2026 — Dental Medrano',
   description: 'Precios especiales en productos seleccionados. Stock limitado.',
   icons: { icon: '/favicon-32.png' },
 }

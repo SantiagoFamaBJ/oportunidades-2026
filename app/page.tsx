@@ -2,38 +2,38 @@
 import { useEffect, useState } from 'react'
 import { supabase, Producto } from '@/lib/supabase'
 import LandingClient from '@/components/LandingClient'
-import { cargarFotos } from '@/lib/fotos'
+import IngresoDistribuidor from '@/components/IngresoDistribuidor'
 
-const conFotos = (ps: Producto[], f: Record<string, string>) => ps.map(p => ({ ...p, imagen_url: f[p.codigo] ?? null }))
-
-const SUPABASE_URL = 'https://larqxmgyutqiktsforgz.supabase.co'
+type Cliente = { nombre: string; esAdmin: boolean }
 
 export default function Home() {
   const [productos, setProductos] = useState<Producto[]>([])
   const [loading, setLoading] = useState(true)
   const [landingActiva, setLandingActiva] = useState<boolean | null>(null)
+  const [cliente, setCliente] = useState<Cliente | null>(null)
+  const [necesitaLogin, setNecesitaLogin] = useState(false)
+
+  /** Pide los productos al servidor. Si no hay sesión, muestra el ingreso. */
+  async function cargarProductos() {
+    try {
+      const res = await fetch('/api/productos', { cache: 'no-store' })
+      if (res.status === 401) { setNecesitaLogin(true); setCliente(null); return }
+      const j = await res.json()
+      if (j.ok) {
+        setProductos(j.data as Producto[])
+        setCliente(j.cliente)
+        setNecesitaLogin(false)
+      }
+    } catch {}
+  }
 
   async function fetchAll() {
-    // Verificar config
     const { data: config } = await supabase
       .from('oportunidades_config')
       .select('landing_activa')
       .single()
     setLandingActiva(config?.landing_activa ?? true)
-
-    if (config?.landing_activa === false) {
-      setLoading(false)
-      return
-    }
-
-    // Cargar productos
-    const { data, error } = await supabase
-      .from('productos_oportunidades')
-      .select('*')
-      .eq('activo', true)
-      .order('fecha_venc', { ascending: true })
-    const fotos = await cargarFotos()
-    if (!error) setProductos(conFotos((data || []) as Producto[], fotos))
+    if (config?.landing_activa !== false) await cargarProductos()
     setLoading(false)
   }
 
@@ -42,25 +42,20 @@ export default function Home() {
   // Refrescar cuando la pestaña vuelve a estar activa
   useEffect(() => {
     const onFocus = () => {
-      supabase
-        .from('oportunidades_config')
-        .select('landing_activa')
-        .single()
+      supabase.from('oportunidades_config').select('landing_activa').single()
         .then(({ data: config }) => {
           setLandingActiva(config?.landing_activa ?? true)
-          if (config?.landing_activa !== false) {
-            supabase
-              .from('productos_oportunidades')
-              .select('*')
-              .eq('activo', true)
-              .order('fecha_venc', { ascending: true })
-              .then(async ({ data }) => { if (data) setProductos(conFotos(data as Producto[], await cargarFotos())) })
-          }
+          if (config?.landing_activa !== false) cargarProductos()
         })
     }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [])
+
+  async function salir() {
+    await fetch('/api/cliente/logout', { method: 'POST' }).catch(() => {})
+    setProductos([]); setCliente(null); setNecesitaLogin(true)
+  }
 
   if (loading || landingActiva === null) return (
     <div style={{
@@ -109,7 +104,7 @@ export default function Home() {
           letterSpacing: 2,
           color: '#f15922',
           marginBottom: 16,
-        }}>Dental Medrano · Oportunidades</div>
+        }}>Dental Medrano · Oportunidades mayoristas</div>
 
         <div style={{
           fontFamily: 'Barlow Condensed, sans-serif',
@@ -151,5 +146,7 @@ export default function Home() {
     </div>
   )
 
-  return <LandingClient productos={productos} />
+  if (necesitaLogin) return <IngresoDistribuidor onIngreso={async () => { setLoading(true); await cargarProductos(); setLoading(false) }} />
+
+  return <LandingClient productos={productos} cliente={cliente} onSalir={salir} />
 }
